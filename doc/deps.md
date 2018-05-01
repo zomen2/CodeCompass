@@ -43,7 +43,7 @@ Procedure Call (RPC) between the server and the client. Thrift is not part of
 the official Ubuntu 16.04 LTS repositories, but you can download it and build
 from source:
 
-- [Download](http://xenia.sote.hu/ftp/mirrors/www.apache.org/thrift/0.10.0/thrift-0.10.0.tar.gz)
+- [Download](http://xenia.sote.hu/ftp/mirrors/www.apache.org/thrift/0.11.0/thrift-0.11.0.tar.gz)
   Thrift
 - Uncompress and build it:
 
@@ -53,7 +53,8 @@ sudo apt-get install byacc flex
 
 tar -xvf ./thrift-<version>.tar.gz
 cd thrift-<version>
-./configure --prefix=<thrift_install_dir>
+./configure --prefix=<thrift_install_dir> JAVA_PREFIX=<thrift_install_dir> \
+    --with-java
 # Thrift can generate stubs for many programming languages. The configure script
 # looks at the development environment and if it finds the environment for a
 # given language then it'll use it. For example in the previous step npm was
@@ -62,6 +63,9 @@ cd thrift-<version>
 # turn it off: ./configure --witout-nodejs.
 make install
 ```
+Thrift java libs also necessary for CodeCompass and they should be placed under
+the *lib/java* directory in the <thrift_install_dir> directory. (See
+*scripts/docker/CC-Devel/bin/install_thrift.sh* for details.)
 
 ## Known issues
 - In Ubuntu 16.04 LTS the LLVM/Clang has some packaging issues, i.e. some libs

@@ -4,9 +4,12 @@ set -e
 
 function usage() {
 cat << EOF
+Create base Docker images of CodeCompass runtime. 
+
 ${0}
     -h  Print this usage information. Optional.
-    -u  URL of the CodeCompass git repository. Optional.
+    Additional positional arguments for "docker build" command. For example:
+        $(basename "$0") --build-arg "http_proxy=1.2.3.4"
 EOF
 }
 
@@ -22,34 +25,41 @@ function call_docker() {
     fi
 }
 
-cc_url="https://github.com/Ericsson/CodeCompass"
-while getopts ":hu:" option; do
-    case ${option} in
-        h)
-            usage
-            exit 0
-            ;;
-        u)
-            cc_url="${OPTARG}"
-            ;;
-        *)
-            usage
-            exit 1
-            ;;
-    esac
-done
+if [[ ! -z "${1}" ]]; then
+    if [[ "${1}" == "-h" ]]; then
+        usage
+        exit 0
+    else
+        additional_build_arguments=("$@")
+    fi
+fi
 
 script_dir=$(readlink -ev "$(dirname "$(which "${0}")")")
-
+docker_context_dir=$(cd ${script_dir} && git rev-parse --show-toplevel)
+compass_docker_file="${script_dir}/codecompass/Dockerfile"
+parser_docker_file="${script_dir}/ccparser/Dockerfile"
 docker_command="$(which docker)"
 
 # Create an ubuntu 16.04 container with installed CodeCompass software.
-build_command=("${docker_command}" "build" "--build-arg"                       \
-  "compass_source_url=${cc_url}" "--tag" "codecompass" "codecompass")
+build_command=("${docker_command}" "build" "--tag" "codecompass")
+
+if [[ ${#additional_build_arguments[@]} > 0 ]]; then
+    build_command+=(${additional_build_arguments[@]})
+fi
+
+build_command+=("--file" "${compass_docker_file}" "${docker_context_dir}")
+
 call_docker "${build_command[@]}"
 
 # Create image as base image of CC parsers.
-build_command=("${docker_command}" "build" "--tag" "ccparser" "ccparser")
+build_command=("${docker_command}" "build" "--tag" "ccparser")
+
+if [[ ${#additional_build_arguments[@]} > 0 ]]; then
+    build_command+=(${additional_build_arguments[@]})
+fi
+
+build_command+=("--file" "${parser_docker_file}" "${docker_context_dir}")
+
 call_docker "${build_command[@]}"
 
 # Create ".env" file for docker-compose command.

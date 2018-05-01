@@ -40,7 +40,7 @@ target_compile_options(searchthrift PUBLIC -fPIC)
 add_dependencies(searchthrift commonthrift projectthrift)
 
 set(CMAKE_JAVA_INCLUDE_PATH
-  ${PROJECT_SOURCE_DIR}/lib/java/*
+  ${THRIFT_LIBTHRIFT_JARS_DIR}/*
   ${PLUGIN_DIR}/service/gen-java/
   ${PROJECT_SOURCE_DIR}/service/project/gen-java/)
 
