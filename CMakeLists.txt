@@ -37,8 +37,8 @@ add_subdirectory(webgui)
 
 # Install java libraries
 install(DIRECTORY
-  lib/java/
-  DESTINATION "${INSTALL_JAVA_LIB_DIR}")
+  "${THRIFT_LIBTHRIFT_JARS_DIR}"
+  DESTINATION "${INSTALL_LIB_DIR}")
 
 # Install Clang additional files
 install(DIRECTORY

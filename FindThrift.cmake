@@ -35,6 +35,8 @@ set(THRIFT_LIBTHRIFT_INCLUDE_DIRS ${libthrift_INCLUDE_DIR}
   CACHE STRING "Thrift libthrift include dirs")
 set(THRIFT_LIBTHRIFT_LIBRARIES ${libthrift_LIBRARY}
   CACHE STRING "Thrift libthrift library")
+set(THRIFT_LIBTHRIFT_JARS_DIR ${libthrift_JAVA_DIR}
+  CACHE STRING "Thrift java jars")
 set(THRIFT_EXECUTABLE ${thrift_BIN}
   CACHE STRING "Thrift executable")
 
