@@ -11,6 +11,7 @@
 
 #include <odb/database.hxx>
 #include <util/odbtransaction.h>
+#include <webserver/servercontext.h>
 
 #include <projectservice/projectservice.h>
 
@@ -44,8 +45,7 @@ public:
   GitServiceHandler(
     std::shared_ptr<odb::database> db_,
     std::shared_ptr<std::string> datadir_,
-    const boost::program_options::variables_map& config_
-      = boost::program_options::variables_map());
+    const cc::webserver::ServerContext& context_);
 
   ~GitServiceHandler();
 
@@ -54,7 +54,7 @@ public:
 
   virtual void getRepositoryByProjectPath(
     RepositoryByProjectPathResult& return_,
-    const std::string& path_);
+    const std::string& path_) override;
 
   virtual void getBlobOidByPath(
     std::string& return_,
@@ -236,7 +236,6 @@ private:
 
   std::shared_ptr<odb::database> _db;
   util::OdbTransaction _transaction;
-  const boost::program_options::variables_map& _config;
   std::shared_ptr<std::string> _datadir;
 
   core::ProjectServiceHandler _projectHandler;

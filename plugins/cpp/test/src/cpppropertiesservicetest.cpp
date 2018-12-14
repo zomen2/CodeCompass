@@ -16,12 +16,13 @@ class CppPropertiesServiceTest : public ::testing::Test
 {
 public:
   CppPropertiesServiceTest() :
-    _db(cc::util::createDatabase(dbConnectionString)),
+    _db(cc::util::connectDatabase(dbConnectionString)),
     _transaction(_db),
     _cppservice(new CppServiceHandler(
       _db,
       std::make_shared<std::string>(""),
-      boost::program_options::variables_map())),
+      cc::webserver::ServerContext(std::string(),
+                                   boost::program_options::variables_map()))),
     _helper(_db, _cppservice)
   {
     _simpleClassHeader = _helper.getFileId("simpleclass.h");

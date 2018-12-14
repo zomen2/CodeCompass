@@ -3,6 +3,9 @@ add_executable(CodeCompass_webserver
   src/mainrequesthandler.cpp
   src/threadedmongoose.cpp )
 
+set_target_properties(CodeCompass_webserver
+  PROPERTIES ENABLE_EXPORTS 1)
+
 add_library(mongoose STATIC src/mongoose.c )
 
 target_include_directories(mongoose PUBLIC include)
@@ -13,14 +16,16 @@ target_include_directories(CodeCompass_webserver PUBLIC
   ${PROJECT_SOURCE_DIR}/model/include
   ${PROJECT_SOURCE_DIR}/util/include)
 
+find_boost_libraries(
+  filesystem
+  log
+  program_options
+  system
+  thread)
 target_link_libraries(CodeCompass_webserver
   util
   mongoose
-  boost_thread
-  boost_filesystem
-  boost_system
-  boost_program_options
-  boost_log
+  ${Boost_LINK_LIBRARIES}
   ${ODB_LIBRARIES}
   pthread
   dl)

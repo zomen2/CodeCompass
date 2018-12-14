@@ -16,16 +16,16 @@ function(generate_odb_files _src)
         ${CMAKE_CURRENT_SOURCE_DIR}/${_ixx}
         ${CMAKE_CURRENT_SOURCE_DIR}/${_sql}
       COMMAND
-        ${ODB} ${ODBFLAGS}
-        -o ${CMAKE_CURRENT_SOURCE_DIR}/${_dir}
-        -I ${CMAKE_CURRENT_SOURCE_DIR}/include
-        -I ${CMAKE_SOURCE_DIR}/model/include
-        -I ${CMAKE_SOURCE_DIR}/util/include
-        -I ${ODB_INCLUDE_DIRS}
-        ${CMAKE_CURRENT_SOURCE_DIR}/${_file}
+        ${ODB_EXECUTABLE} ${ODBFLAGS}
+          -o ${CMAKE_CURRENT_SOURCE_DIR}/${_dir}
+          -I ${CMAKE_CURRENT_SOURCE_DIR}/include
+          -I ${CMAKE_SOURCE_DIR}/model/include
+          -I ${CMAKE_SOURCE_DIR}/util/include
+          -I ${ODB_INCLUDE_DIRS}
+          ${CMAKE_CURRENT_SOURCE_DIR}/${_file}
       DEPENDS
         ${CMAKE_CURRENT_SOURCE_DIR}/${_file}
-      COMMENT "Building odb for ${_file}")
+      COMMENT "Generating ODB for ${_file}")
 
     list(APPEND SOURCES ${_cxx})
   endforeach(_file)
@@ -87,3 +87,36 @@ function(install_webplugin _dir)
   file(GLOB _userguides "${_dir}/userguide/*.md")
   set_property(GLOBAL APPEND PROPERTY USERGUIDES "${_userguides}")
 endfunction(install_webplugin)
+
+# Finds the absolute paths for the given Boost libraries
+# Use variable arguments for the Boost libraries to link
+function(find_boost_libraries)
+  foreach(_lib ${ARGV})
+    foreach(_path ${Boost_LIBRARIES})
+      if(_path MATCHES ".*boost_${_lib}\.so$")
+        list(APPEND LIBS ${_path})
+      endif(_path MATCHES ".*boost_${_lib}\.so$")
+    endforeach(_path)
+  endforeach(_lib)
+
+  set(Boost_LINK_LIBRARIES ${LIBS} PARENT_SCOPE)
+endfunction(find_boost_libraries)
+
+# Prints a coloured, and optionally bold message to the console.
+# _colour should be some ANSI colour name, like "blue" or "magenta".
+function(fancy_message _str _colour _isBold)
+  set(BOLD_TAG "")
+  set(COLOUR_TAG "")
+
+  if (_isBold)
+    set(BOLD_TAG "--bold")
+  endif()
+
+  if (NOT (_colour STREQUAL ""))
+    set(COLOUR_TAG "--${_colour}")
+  endif()
+
+  execute_process(COMMAND
+    ${CMAKE_COMMAND} -E env CLICOLOR_FORCE=1
+    ${CMAKE_COMMAND} -E cmake_echo_color ${COLOUR_TAG} ${BOLD_TAG} ${_str})
+endfunction(fancy_message)

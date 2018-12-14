@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.9)
+cmake_minimum_required(VERSION 3.4.3)
 project(CodeCompass)
 
 # Common config variables and settings
@@ -7,11 +7,12 @@ include(Config.cmake)
 # Utility functions
 include(Functions.cmake)
 
-enable_testing()
+# Do some sanity check on the testing setup and enable testing if applicable.
+include(Testing.cmake)
 
 find_package(Threads REQUIRED)
 find_package(LLVM    REQUIRED CONFIG)
-find_package(Boost   REQUIRED)
+find_package(Boost   REQUIRED COMPONENTS filesystem log program_options regex system thread)
 find_package(Odb     REQUIRED)
 find_package(Thrift  REQUIRED)
 find_package(Java    REQUIRED)
@@ -19,6 +20,10 @@ find_package(GTest)
 
 include(UseJava)
 set(CMAKE_JAVA_COMPILE_FLAGS -encoding utf8)
+
+# Set the third-party libraries' path properly so the installation can find them.
+include(Exports.cmake)
+set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_RPATH};${RUNENV_LD_LIBRARY_PATH}")
 
 add_subdirectory(model)
 add_subdirectory(util)

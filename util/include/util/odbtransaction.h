@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <future>
+#include <cstring>
 
 #include <odb/database.hxx>
 #include <odb/transaction.hxx>
@@ -132,6 +133,7 @@ public:
       s.reset();
     }
 #ifdef DATABASE_SQLITE
+    (void)_switchCurrent; // Silence unused variable warning in SQLite mode.
     // IT'S COMMENTED OUT (SLOW, VERY SLOW)
     /*else if (_switchCurrent)
     {
@@ -174,12 +176,22 @@ void persistAll(Cont& cont_, std::shared_ptr<odb::database> db_)
         << item->toString();
       LOG(warning)
         << ex.what() << std::endl
-        << "AST nodes in this translation unit will be ignored!";
+        << "Further changes in this transaction will be ignored!";
     }
     catch (const odb::database_exception& ex)
     {
-      // TODO: Error code should be checked and rethrow if it is not unique
-      // constraint error. Error code may be database specific.
+      LOG(debug) << item->toString();
+
+#ifdef DATABASE_PGSQL
+      if (std::strstr(ex.what(), "25P02") != nullptr)
+      {
+        LOG(error) << "The transaction was aborted due to previous error, omitting further changes!";
+        break;
+      }
+#endif
+
+      LOG(error) << ex.what() << std::endl;
+      throw;
     }
   }
 }

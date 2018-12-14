@@ -71,6 +71,9 @@ namespace
     {
     }
 
+    /**
+     * Returns the Thrift object for this C++ AST node.
+     */
     cc::service::language::AstNodeInfo operator()(
       const cc::model::CppAstNode& astNode_)
     {
@@ -88,16 +91,7 @@ namespace
       ret.range.range.endpos.column = astNode_.location.range.end.column;
 
       if (astNode_.location.file)
-      {
         ret.range.file = std::to_string(astNode_.location.file.object_id());
-
-        ret.__set_srcText(cc::util::textRange(
-          astNode_.location.file.load()->content.load()->content,
-          astNode_.location.range.start.line,
-          astNode_.location.range.start.column,
-          astNode_.location.range.end.line,
-          astNode_.location.range.end.column));
-      }
 
       TagMap::const_iterator it = _tags.find(astNode_.id);
       if (it != _tags.end())
@@ -121,8 +115,11 @@ namespace language
 CppServiceHandler::CppServiceHandler(
   std::shared_ptr<odb::database> db_,
   std::shared_ptr<std::string> datadir_,
-  const boost::program_options::variables_map& config_)
-    : _db(db_), _transaction(db_), _datadir(datadir_), _config(config_)
+  const cc::webserver::ServerContext& context_)
+    : _db(db_),
+      _transaction(db_),
+      _datadir(datadir_),
+      _context(context_)
 {
 }
 
@@ -137,6 +134,25 @@ void CppServiceHandler::getAstNodeInfo(
 {
   return_ = _transaction([this, &astNodeId_](){
     return CreateAstNodeInfo()(queryCppAstNode(astNodeId_));
+  });
+}
+
+void CppServiceHandler::getSourceText(
+  std::string& return_,
+  const core::AstNodeId& astNodeId_)
+{
+  return_ = _transaction([this, &astNodeId_](){
+    model::CppAstNode astNode = queryCppAstNode(astNodeId_);
+
+    if (astNode.location.file)
+      return cc::util::textRange(
+        astNode.location.file.load()->content.load()->content,
+        astNode.location.range.start.line,
+        astNode.location.range.start.column,
+        astNode.location.range.end.line,
+        astNode.location.range.end.column);
+
+    return std::string();
   });
 }
 
@@ -577,7 +593,7 @@ void CppServiceHandler::getReferences(
   std::vector<AstNodeInfo>& return_,
   const core::AstNodeId& astNodeId_,
   const std::int32_t referenceId_,
-  const std::vector<std::string>& tags_)
+  const std::vector<std::string>& /* tags_ */)
 {
   std::map<model::CppAstNodeId, std::vector<std::string>> tags;
   std::vector<model::CppAstNode> nodes;
@@ -975,28 +991,28 @@ void CppServiceHandler::getDiagramTypes(
 }
 
 void CppServiceHandler::getReferencesInFile(
-  std::vector<AstNodeInfo>& return_,
-  const core::AstNodeId& astNodeId_,
-  const std::int32_t referenceId_,
-  const core::FileId& fileId_,
-  const std::vector<std::string>& tags_)
+  std::vector<AstNodeInfo>& /* return_ */,
+  const core::AstNodeId& /* astNodeId_ */,
+  const std::int32_t /* referenceId_ */,
+  const core::FileId& /* fileId_ */,
+  const std::vector<std::string>& /* tags_ */)
 {
   // TODO
 }
 
 void CppServiceHandler::getReferencesPage(
-  std::vector<AstNodeInfo>& return_,
-  const core::AstNodeId& astNodeId_,
-  const std::int32_t referenceId_,
-  const std::int32_t pageSize_,
-  const std::int32_t pageNo_)
+  std::vector<AstNodeInfo>& /* return_ */,
+  const core::AstNodeId& /* astNodeId_ */,
+  const std::int32_t /* referenceId_ */,
+  const std::int32_t /* pageSize_ */,
+  const std::int32_t /* pageNo_ */)
 {
   // TODO
 }
 
 void CppServiceHandler::getFileReferenceTypes(
   std::map<std::string, std::int32_t>& return_,
-  const core::FileId& fileId_)
+  const core::FileId& /* fileId_ */)
 {
   return_["Types"]     = TYPES;
   return_["Functions"] = FUNCTIONS;
@@ -1090,8 +1106,8 @@ std::int32_t CppServiceHandler::getFileReferenceCount(
 }
 
 void CppServiceHandler::getSyntaxHighlight(
-  std::vector<SyntaxHighlight>& return_,
-  const core::FileId& fileId)
+  std::vector<SyntaxHighlight>& /* return_ */,
+  const core::FileId& /* fileId_ */)
 {
   // TODO
 }
@@ -1101,7 +1117,7 @@ void CppServiceHandler::getDiagram(
   const core::AstNodeId& astNodeId_,
   const std::int32_t diagramId_)
 {
-  Diagram diagram(_db, _datadir, _config);
+  Diagram diagram(_db, _datadir, _context);
   util::Graph graph;
 
   switch (diagramId_)
@@ -1127,7 +1143,7 @@ void CppServiceHandler::getDiagramLegend(
   std::string& return_,
   const std::int32_t diagramId_)
 {
-  Diagram diagram(_db, _datadir, _config);
+  Diagram diagram(_db, _datadir, _context);
 
   switch (diagramId_)
   {
@@ -1173,7 +1189,7 @@ void CppServiceHandler::getFileDiagram(
   const core::FileId& fileId_,
   const int32_t diagramId_)
 {
-  FileDiagram diagram(_db, _datadir, _config);
+  FileDiagram diagram(_db, _datadir, _context);
   util::Graph graph;
   graph.setAttribute("rankdir", "LR");
 
@@ -1212,7 +1228,7 @@ void CppServiceHandler::getFileDiagramLegend(
   std::string& return_,
   const std::int32_t diagramId_)
 {
-  FileDiagram diagram(_db, _datadir, _config);
+  FileDiagram diagram(_db, _datadir, _context);
 
   switch (diagramId_)
   {

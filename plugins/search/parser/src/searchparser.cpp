@@ -69,6 +69,7 @@ SearchParser::SearchParser(ParserContext& ctx_) : AbstractParser(ctx_),
 
     _indexProcess.reset(new IndexerProcess(
       _searchDatabase,
+      ctx_.compassRoot,
       IndexerProcess::OpenMode::Create));
   }
   catch (const IndexerProcess::Failure& ex_)
@@ -85,18 +86,11 @@ std::vector<std::string> SearchParser::getDependentParsers() const
 bool SearchParser::parse()
 {
   if (fs::is_directory(_searchDatabase))
-    if (_ctx.options.count("force"))
-    {
-      fs::remove_all(_searchDatabase);
-      fs::create_directory(_searchDatabase);
-    }
-    else
-    {
-      LOG(info)
-        << "Skipping search parser, because search database already exists. "
-           "Use -f flag for forcing reparse.";
-      return true;
-    }
+  {
+    fs::remove_all(_searchDatabase);
+    fs::create_directory(_searchDatabase);
+    LOG(info) << "Search database already exists, dropping.";
+  }
 
   for (const std::string& path :
     _ctx.options["input"].as<std::vector<std::string>>())
@@ -240,6 +234,8 @@ SearchParser::~SearchParser()
     ::magic_close(_fileMagic);
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wreturn-type-c-linkage"
 extern "C"
 {
   boost::program_options::options_description getOptions()
@@ -259,7 +255,7 @@ extern "C"
     return std::shared_ptr<SearchParser>(new SearchParser(ctx_));
   }
 }
-
+#pragma clang diagnostic pop
 
 } // parser
 } // cc

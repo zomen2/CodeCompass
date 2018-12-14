@@ -17,12 +17,13 @@ class CppReferenceServiceTest : public ::testing::Test
 {
 public:
   CppReferenceServiceTest() :
-    _db(cc::util::createDatabase(dbConnectionString)),
+    _db(cc::util::connectDatabase(dbConnectionString)),
     _transaction(_db),
     _cppservice( new CppServiceHandler(
       _db,
       std::make_shared<std::string>(""),
-      boost::program_options::variables_map())),
+      cc::webserver::ServerContext(std::string(),
+                                   boost::program_options::variables_map()))),
     _helper(_db, _cppservice)
   {
     _simpleClassHeader = _helper.getFileId("simpleclass.h");
@@ -183,8 +184,8 @@ TEST_F(CppReferenceServiceTest, DerivedClassTest)
     {"Data member", {34}}, /*!< Z */
     {"Definition", {31}},
     {"Inherits from", {9, 21}}, /*!< BaseClass1, BaseClass2 */
-    {"Method", {-1, -1, -1, -1, 36, 38, 40}}, /*!< f, g, h, copy ctor, move ctor
-      cpy operator=, move operator=, dtor */
+    {"Method", {-1, -1, -1, -1, -1, 36, 38, 40}}, /*!< move assignment,
+      copy assignment, move ctor, copy ctor, dtor, f, g, h */
     {"Usage", {31, 8, 40, 45, 50}}
   };
 
