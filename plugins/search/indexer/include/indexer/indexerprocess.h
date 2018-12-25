@@ -1,8 +1,9 @@
 #ifndef CC_PARSER_INDEXERPROCESS_H
 #define CC_PARSER_INDEXERPROCESS_H
 
-#include <unordered_map>
+#include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <util/pipedprocess.h>
@@ -70,7 +71,7 @@ public:
    * Closes the I/O pipe so the child process will exit if it finished. Also
    * waits for the process to exit.
    */
-  ~IndexerProcess();
+  virtual ~IndexerProcess();
   
 public:
   virtual void stop() override;

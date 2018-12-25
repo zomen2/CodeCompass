@@ -29,6 +29,11 @@ add_library(searchindexerthrift STATIC
 
 target_compile_options(searchindexerthrift PUBLIC -fPIC)
 
+add_definitions(
+    -DTHRIFT_MAJOR_VERSION=${THRIFT_MAJOR_VERSION}
+    -DTHRIFT_MINOR_VERSION=${THRIFT_MINOR_VERSION}
+    -DTHRIFT_PATCH_LEVEL=${THRIFT_PATCH_LEVEL})
+
 # Create java library from thrift files
 set(CMAKE_JAVA_INCLUDE_PATH ${THRIFT_LIBTHRIFT_JARS_DIR}/*)
 

@@ -1,6 +1,13 @@
 #ifndef CC_WEBSERVER_THRIFTHANDLER_H
 #define CC_WEBSERVER_THRIFTHANDLER_H
 
+#include <util/versionhandling.h>
+
+#if INTEGER_VERSION(THRIFT_VERSION_MAJOR, THRIFT_VERSION_MINOR, \
+                    THRIFT_PATCH_LEVEL) <= INTEGER_VERSION(0, 10, 0)
+#include <boost/shared_ptr.hpp>
+#endif
+
 #include <memory>
 #include <stdio.h>
 #include <string>
@@ -46,6 +53,15 @@ namespace cc
 namespace webserver
 {
 
+#if INTEGER_VERSION(THRIFT_VERSION_MAJOR, THRIFT_VERSION_MINOR, \
+                    THRIFT_PATCH_LEVEL) > INTEGER_VERSION(0, 10, 0)
+    template <typename T>
+    using shared_ptr_type = std::shared_ptr<T>;
+#else
+    template <typename T>
+    using shared_ptr_type = boost::shared_ptr<T>;
+#endif
+
 template<class Processor>
 class ThriftHandler : public RequestHandler
 {
@@ -69,8 +85,9 @@ protected:
   class LoggingProcessor : public Processor
   {
   public:
+
     template <typename IFaceType>
-    LoggingProcessor(std::shared_ptr<IFaceType> handler_)
+    LoggingProcessor(shared_ptr_type<IFaceType> handler_)
       : Processor(handler_)
     {
     }
@@ -90,9 +107,10 @@ protected:
   };
 
 public:
+
   template<class Handler>
   ThriftHandler(Handler *handler_)
-    : _processor(std::shared_ptr<Handler>(handler_))
+    : _processor(shared_ptr_type<Handler>(handler_))
   {
   }
 
@@ -119,14 +137,14 @@ public:
 
       LOG(debug) << "Request content:\n" << content;
 
-      std::shared_ptr<TTransport> inputBuffer(
+      shared_ptr_type<TTransport> inputBuffer(
         new TMemoryBuffer((std::uint8_t*)content.c_str(), content.length()));
 
-      std::shared_ptr<TTransport> outputBuffer(new TMemoryBuffer(4096));
+      shared_ptr_type<TTransport> outputBuffer(new TMemoryBuffer(4096));
 
-      std::shared_ptr<TProtocol> inputProtocol(
+      shared_ptr_type<TProtocol> inputProtocol(
         new TJSONProtocol(inputBuffer));
-      std::shared_ptr<TProtocol> outputProtocol(
+      shared_ptr_type<TProtocol> outputProtocol(
         new TJSONProtocol(outputBuffer));
 
       CallContext ctx{conn_, nullptr};

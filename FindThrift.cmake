@@ -61,3 +61,18 @@ execute_process(COMMAND ${THRIFT_EXECUTABLE} --version
   OUTPUT_VARIABLE Thrift_VERSION
   OUTPUT_STRIP_TRAILING_WHITESPACE)
 message(STATUS "Found ${Thrift_VERSION}: ${THRIFT_EXECUTABLE}")
+
+string(REGEX REPLACE "^Thrift version ([0-9]+)\.([0-9]+)\.([0-9]+)" "\\1"
+       Thrift_MAJOR "${Thrift_VERSION}")
+set(THRIFT_MAJOR_VERSION ${Thrift_MAJOR}
+  CACHE STRING "Thrift major version in integer format")
+
+string(REGEX REPLACE "^Thrift version ([0-9]+)\.([0-9]+)\.([0-9]+)" "\\2"
+       Thrift_MINOR "${Thrift_VERSION}")
+set(THRIFT_MINOR_VERSION ${Thrift_MINOR}
+  CACHE STRING "Thrift minor version in integer format")
+
+string(REGEX REPLACE "^Thrift version ([0-9]+)\.([0-9]+)\.([0-9]+)" "\\3"
+       Thrift_PATCH "${Thrift_VERSION}")
+set(THRIFT_PATCH_LEVEL ${Thrift_PATCH}
+  CACHE STRING "Thrift patch level in integer format")

@@ -1,6 +1,14 @@
+#include <util/versionhandling.h>
+
+#if INTEGER_VERSION(THRIFT_VERSION_MAJOR, THRIFT_VERSION_MINOR, \
+                    THRIFT_PATCH_LEVEL) <= INTEGER_VERSION(0, 10, 0)
+#include <boost/shared_ptr.hpp>
+#endif
+
 #include <memory>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include <boost/log/expressions.hpp>
 
@@ -26,6 +34,15 @@ namespace cc
 {
 namespace parser
 {
+
+#if INTEGER_VERSION(THRIFT_VERSION_MAJOR, THRIFT_VERSION_MINOR, \
+                    THRIFT_PATCH_LEVEL) > INTEGER_VERSION(0, 10, 0)
+    template <typename T>
+    using shared_ptr_type = std::shared_ptr<T>;
+#else
+    template <typename T>
+    using shared_ptr_type = boost::shared_ptr<T>;
+#endif
 
 IndexerProcess::IndexerProcess(
   const std::string& indexDatabase_,
@@ -107,9 +124,9 @@ IndexerProcess::IndexerProcess(
     using ProtocolFactory =
       apache::thrift::protocol::TBinaryProtocolFactoryT<Transport>;
 
-    std::shared_ptr<apache::thrift::transport::TTransport> transIn(
+    shared_ptr_type<apache::thrift::transport::TTransport> transIn(
       new Transport(_pipeFd2[0], Transport::NO_CLOSE_ON_DESTROY));
-    std::shared_ptr<apache::thrift::transport::TTransport> transOut(
+    shared_ptr_type<apache::thrift::transport::TTransport> transOut(
       new Transport(_pipeFd[1], Transport::NO_CLOSE_ON_DESTROY));
 
     ProtocolFactory protFactory;
