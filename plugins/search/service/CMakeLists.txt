@@ -79,6 +79,7 @@ add_subdirectory(search-java)
 # Create services
 add_library(searchservice SHARED
   src/searchservice.cpp
+  src/serviceprocess.cpp
   src/plugin.cpp)
 
 target_compile_options(searchservice PUBLIC -Wno-unknown-pragmas)
