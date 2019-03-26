@@ -33,6 +33,11 @@ add_library(pluginthrift STATIC
 
 target_compile_options(pluginthrift PUBLIC -fPIC -Wno-unknown-pragmas)
 
+add_definitions(
+    -DTHRIFT_MAJOR_VERSION=${THRIFT_MAJOR_VERSION}
+    -DTHRIFT_MINOR_VERSION=${THRIFT_MINOR_VERSION}
+    -DTHRIFT_PATCH_LEVEL=${THRIFT_PATCH_LEVEL})
+
 add_library(pluginservice SHARED
   src/pluginservice.cpp
   src/plugin.cpp)

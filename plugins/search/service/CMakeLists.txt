@@ -84,6 +84,11 @@ add_library(searchservice SHARED
 
 target_compile_options(searchservice PUBLIC -Wno-unknown-pragmas)
 
+add_definitions(
+    -DTHRIFT_MAJOR_VERSION=${THRIFT_MAJOR_VERSION}
+    -DTHRIFT_MINOR_VERSION=${THRIFT_MINOR_VERSION}
+    -DTHRIFT_PATCH_LEVEL=${THRIFT_PATCH_LEVEL})
+
 target_link_libraries(searchservice
   util
   model

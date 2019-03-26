@@ -1,6 +1,6 @@
 #include <util/versionhandling.h>
 
-#if INTEGER_VERSION(THRIFT_VERSION_MAJOR, THRIFT_VERSION_MINOR, \
+#if INTEGER_VERSION(THRIFT_MAJOR_VERSION, THRIFT_MINOR_VERSION, \
                     THRIFT_PATCH_LEVEL) <= INTEGER_VERSION(0, 10, 0)
 #include <boost/shared_ptr.hpp>
 #endif
@@ -138,7 +138,7 @@ void ServiceProcess::checkProcess()
     }
 }
 
-#if INTEGER_VERSION(THRIFT_VERSION_MAJOR, THRIFT_VERSION_MINOR, \
+#if INTEGER_VERSION(THRIFT_MAJOR_VERSION, THRIFT_MINOR_VERSION, \
                     THRIFT_PATCH_LEVEL) > INTEGER_VERSION(0, 10, 0)
     template <typename T>
     using shared_ptr_type = std::shared_ptr<T>;
