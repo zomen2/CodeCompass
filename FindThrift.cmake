@@ -18,6 +18,12 @@ find_library(libthrift_LIBRARY
     ${THIRFT_LIBRARY_PATH}
     ${PC_LIBTHIRFT_LIBRARY_DIRS})
 
+find_path(libthrift_JAVA_DIR
+  NAMES libthrift-0.11.0.jar
+  HINTS
+    ${libthrift_INCLUDE_DIR}/../lib/java
+    NO_DEFAULT_PATH)
+
 find_program(thrift_BIN
   NAMES thrift
   HINTS
@@ -29,6 +35,8 @@ set(THRIFT_LIBTHRIFT_INCLUDE_DIRS ${libthrift_INCLUDE_DIR}
   CACHE STRING "Thrift libthrift include dirs")
 set(THRIFT_LIBTHRIFT_LIBRARIES ${libthrift_LIBRARY}
   CACHE STRING "Thrift libthrift library")
+set(THRIFT_LIBTHRIFT_JARS_DIR ${libthrift_JAVA_DIR}
+  CACHE STRING "Thrift java jars")
 set(THRIFT_EXECUTABLE ${thrift_BIN}
   CACHE STRING "Thrift executable")
 
@@ -41,6 +49,11 @@ if(Thrift_FIND_REQUIRED AND
   message(FATAL_ERROR "Couldn't find Thrift.")
 endif()
 
+if(THRIFT_LIBTHRIFT_JARS_DIR)
+  set(THRIFT_LIBTHRIFT_JAR_FOUND TRUE)
+endif()
+
+# TODO: These not appears in the generated makefiles. Are they necessary?
 set(THRIFT_INCLUDE_DIRS ${THRIFT_LIBTHRIFT_INCLUDE_DIRS})
 set(THRIFT_LIBRARIES ${THRIFT_LIBTHRIFT_LIBRARIES})
 

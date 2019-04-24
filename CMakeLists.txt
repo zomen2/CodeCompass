@@ -19,6 +19,7 @@ find_package(Java    REQUIRED)
 find_package(GTest)
 
 include(UseJava)
+set(CMAKE_JAVA_COMPILE_FLAGS -encoding utf8)
 
 # Set the third-party libraries' path properly so the installation can find them.
 include(Exports.cmake)
@@ -36,8 +37,8 @@ add_subdirectory(webgui)
 
 # Install java libraries
 install(DIRECTORY
-  lib/java/
-  DESTINATION "${INSTALL_JAVA_LIB_DIR}")
+  "${THRIFT_LIBTHRIFT_JARS_DIR}"
+  DESTINATION "${INSTALL_LIB_DIR}")
 
 # Install Clang additional files
 install(DIRECTORY

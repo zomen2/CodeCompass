@@ -30,7 +30,7 @@ add_library(searchindexerthrift STATIC
 target_compile_options(searchindexerthrift PUBLIC -fPIC)
 
 # Create java library from thrift files
-set(CMAKE_JAVA_INCLUDE_PATH ${PROJECT_SOURCE_DIR}/lib/java/*)
+set(CMAKE_JAVA_INCLUDE_PATH ${THRIFT_LIBTHRIFT_JARS_DIR}/*)
 
 add_jar(searchindexerthriftjava
   ${CMAKE_CURRENT_SOURCE_DIR}/gen-java/cc/parser/search/FieldValue.java
