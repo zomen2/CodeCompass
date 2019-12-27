@@ -120,7 +120,20 @@ sudo apt-get install ant
 # install. Python, PHP and such other Thrift builds are NOT required by
 # CodeCompass.
 
-./configure --prefix=<thrift_install_dir> --with-python=NO --with-php=NO
+./configure --prefix=<thrift_install_dir>                          \
+  --enable-libtool-lock --enable-tutorial=no --enable-tests=no     \
+  --with-libevent" --with-zlib --without-nodejs --without-lua      \
+  --without-ruby --without-csharp --without-erlang --without-perl  \
+  --without-php --without-php_extension --without-dart             \
+  --without-haskell --without-go --without-rs --without-haxe       \
+  --without-dotnetcore --without-d --without-qt4 --without-qt5     \
+  --without-python --with-java
+
+Thrift java libs also necessary for CodeCompass and they should be placed under
+the *lib/java* directory in the <thrift_install_dir> directory. In the Thrift
+0.12.0 version, the Java jars not installed by the make install command. So some
+additional move commands are necessary to place the Thrift jars to the right
+place. (See docker/CC-devel/bin/install_thrift.sh)
 
 make install
 ```

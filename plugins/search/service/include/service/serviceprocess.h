@@ -2,12 +2,12 @@
 #define CC_SERVICE_SERVICEPROCESS_H
 
 #include <memory>
+#include <string>
+#include <vector>
 
-#include <thrift/transport/TFDTransport.h>
-#include <thrift/protocol/TBinaryProtocol.h>
+#include <thrift/Thrift.h>
 
 #include <util/pipedprocess.h>
-#include <util/logutil.h>
 
 #include <SearchService.h>
 
@@ -33,112 +33,26 @@ public:
    * @param indexDatabase_ path to a index database
    */
   ServiceProcess(const std::string& indexDatabase_,
-                 const std::string& compassRoot_) :
-    _indexDatabase(indexDatabase_)
-  {
-    openPipe(_pipeFd2[0], _pipeFd2[1]);
+                 const std::string& compassRoot_);
 
-    int pid = startProcess();
-    if (pid == 0)
-    {
-      std::string inFd(std::to_string(_pipeFd[0]));
-      std::string outFd(std::to_string(_pipeFd2[1]));
-
-      std::string logLevelOpt("-Dcc.search.logLevel=");
-      auto fmtSeverity = util::getSeverityLevel();
-
-      if(fmtSeverity == boost::log::trivial::info)
-        logLevelOpt += "INFO";
-      else if(fmtSeverity == boost::log::trivial::error ||
-              fmtSeverity == boost::log::trivial::warning)
-        logLevelOpt += "WARNING";
-      else if(fmtSeverity == boost::log::trivial::fatal)
-        logLevelOpt += "SEVERE";
-      else
-        logLevelOpt += "ALL";
-
-      std::string classpath = compassRoot_ + "/lib/java/*";
-
-      ::execlp("java", "java", "-server",
-        "-classpath", classpath.c_str(),
-        //"-Xdebug", "-Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=8666",
-        "-Djava.util.logging.config.class=cc.search.common.config.LogConfigurator",
-        "-Djava.util.logging.SimpleFormatter.format=[%4$s] %5$s%6$s%n",
-        logLevelOpt.c_str(),
-        "cc.search.service.app.service.ServiceApp",
-        "-indexDB", _indexDatabase.c_str(),
-        "-ipcInFd", inFd.c_str(),
-        "-ipcOutFd", outFd.c_str(),
-        "-useSimpleFileLock",
-        "-cleanupLocks",
-        nullptr);
-
-      LOG(error) << "execlp failed!";
-
-      // This shouldn't be executed by child process
-      ::abort();
-    }
-    else
-    {
-      getClientInterface();
-    }
-  }
-
-  ~ServiceProcess()
-  {
-    try
-    {
-      pleaseStop();
-    }
-    catch (const ProcessDied&)
-    {
-    }
-    catch (...)
-    {
-      LOG(warning) << "'pleaseStop' failed!";
-    }
-
-    _service.reset(nullptr);
-
-    closePipe(_pipeFd2[0], _pipeFd2[1]);
-  }
+  ~ServiceProcess() override;
 
 public:
   void search(
     SearchResult& _return,
-    const SearchParams& params_) override
-  {
-    checkProcess();
-    _service->search(_return, params_);
-  }
+    const SearchParams& params_) override;
 
   void searchFile(
     FileSearchResult& _return,
-    const SearchParams& params_) override
-  {
-    checkProcess();
-    _service->searchFile(_return, params_);
-  }
+    const SearchParams& params_) override;
 
   void getSearchTypes(
-    std::vector<SearchType>& _return) override
-  {
-    checkProcess();
-    _service->getSearchTypes(_return);
-  }
+    std::vector<SearchType>& _return) override;
 
-  void pleaseStop() override
-  {
-    checkProcess();
-    _service->pleaseStop();
-  }
+  void pleaseStop() override;
 
   void suggest(SearchSuggestions& _return,
-    const SearchSuggestionParams& params_) override
-  {
-    checkProcess();
-    _service->suggest(_return, params_);
-  }
+    const SearchSuggestionParams& params_) override;
 
 private:
   /**
@@ -146,35 +60,12 @@ private:
    *
    * @throw apache::thrift::TException
    */
-  void checkProcess()
-  {
-    if (!isAlive())
-    {
-      throw ProcessDied();
-    }
-  }
+  void checkProcess();
 
   /**
    * Creates the client interface.
    */
-  void getClientInterface()
-  {
-    using Transport = apache::thrift::transport::TFDTransport;
-    using ProtocolFactory =
-      apache::thrift::protocol::TBinaryProtocolFactoryT<Transport>;
-
-    std::shared_ptr<apache::thrift::transport::TTransport> transIn(
-      new Transport(_pipeFd2[0], Transport::NO_CLOSE_ON_DESTROY));
-    std::shared_ptr<apache::thrift::transport::TTransport> transOut(
-      new Transport(_pipeFd[1], Transport::NO_CLOSE_ON_DESTROY));
-
-    ProtocolFactory protFactory;
-
-    _service.reset(new SearchServiceClient(
-      protFactory.getProtocol(transIn),
-      protFactory.getProtocol(transOut)));
-  }
-
+  void getClientInterface();
 
 private:
   /**
@@ -198,4 +89,3 @@ private:
 } // cc
 
 #endif // CC_SERVICE_SERVICEPROCESS_H
-

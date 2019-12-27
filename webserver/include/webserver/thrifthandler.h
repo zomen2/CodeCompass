@@ -1,8 +1,10 @@
 #ifndef CC_WEBSERVER_THRIFTHANDLER_H
 #define CC_WEBSERVER_THRIFTHANDLER_H
 
-#include <stdio.h>
 #include <memory>
+#include <stdio.h>
+#include <string>
+#include <typeinfo>
 
 #include <thrift/transport/TBufferTransports.h>
 #include <thrift/transport/THttpServer.h>

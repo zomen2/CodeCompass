@@ -1,5 +1,7 @@
-#include <sstream>
 #include <memory>
+#include <sstream>
+#include <string>
+#include <vector>
 
 #include <boost/log/expressions.hpp>
 

@@ -41,7 +41,7 @@ target_compile_options(searchthrift PUBLIC -fPIC)
 add_dependencies(searchthrift commonthrift projectthrift)
 
 set(CMAKE_JAVA_INCLUDE_PATH
-  ${PROJECT_SOURCE_DIR}/lib/java/*
+  ${THRIFT_LIBTHRIFT_JARS_DIR}/*
   ${CMAKE_CURRENT_BINARY_DIR}/gen-java/
   ${PROJECT_BINARY_DIR}/service/project/gen-java/)
 
@@ -74,6 +74,7 @@ add_subdirectory(search-java)
 # Create services
 add_library(searchservice SHARED
   src/searchservice.cpp
+  src/serviceprocess.cpp
   src/plugin.cpp)
 
 target_compile_options(searchservice PUBLIC -Wno-unknown-pragmas)

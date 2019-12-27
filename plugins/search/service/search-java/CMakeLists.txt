@@ -1,5 +1,5 @@
 set(CMAKE_JAVA_INCLUDE_PATH
-  ${PROJECT_SOURCE_DIR}/lib/java/*
+  ${THRIFT_LIBTHRIFT_JARS_DIR}/*
   ${PLUGIN_DIR}/lib/java/*)
 
 add_jar(searchservicejava
