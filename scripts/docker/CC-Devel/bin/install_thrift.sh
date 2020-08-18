@@ -7,6 +7,9 @@ function cleanup() {
     if  [[ -n "${thrift_build_dir}" ]]; then
         rm --recursive --force "${thrift_build_dir}"
     fi
+    if  [[ -n "${thrift_install_dir}" ]]; then
+        rm --recursive --force "${thrift_install_dir}"
+    fi
 }
 
 trap cleanup EXIT
@@ -22,7 +25,7 @@ EOF
 }
 
 thrift_install_dir="/opt/thrift"
-while getopts "ht:p:" OPTION; do
+while getopts "ht:p:d:" OPTION; do
     case ${OPTION} in
         h)
             usage
@@ -60,6 +63,7 @@ thrift_src_dir="${thrift_build_dir}/thrift"
 java_lib_install_dir="${thrift_install_dir}/lib/java"
 
 mkdir --parents "${thrift_src_dir}"
+
 wget --no-verbose \
   "http://xenia.sote.hu/ftp/mirrors/www.apache.org/thrift/"\
 "${thrift_version}/${thrift_archive_dir}"                                      \
@@ -71,6 +75,9 @@ rm "${thrift_build_dir}/${thrift_archive_dir}"
 # Workaround: Maven repository access allowed by https only.
 sed --expression='s,http://repo1.maven.org,https://repo1.maven.org,'           \
     --in-place "${thrift_src_dir}/lib/java/gradle.properties"
+
+mkdir --parents "${thrift_install_dir}"
+thrift_install_dir=$(readlink --canonicalize-existing --verbose "${thrift_install_dir}")
 
 # TODO gradle proxy definitions.
 configure_cmd=("./configure" "--prefix=${thrift_install_dir}"                  \

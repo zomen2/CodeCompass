@@ -30,7 +30,7 @@ RUN ./bin/install_dependencies.sh
 # TODO: Add clang alternatives
 
 RUN ./bin/install_gtest.sh                                                     \
-  && ./bin/install_thrift.sh -t "0.12.0"
+  && ./bin/install_thrift.sh -t "0.13.0"
 
 RUN mv \
     /root/bin/fetchcompass.sh                                                  \

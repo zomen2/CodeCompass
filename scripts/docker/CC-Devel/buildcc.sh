@@ -61,7 +61,7 @@ if [[ "${developer_id}" -eq 0 ]] || [[ "${developer_group}" -eq 0 ]]; then
     exit 4
 fi
 
-mkdir -p ${cc_output_dir}
+mkdir --parents "${cc_output_dir}"
 cc_source_mounted="/mnt/cc_source"
 cc_output_mounted="/mnt/cc_output"
 
@@ -72,7 +72,7 @@ docker_command=("docker" "run" "--rm"                                       \
   "compass-devel" "/usr/local/bin/buildcompass.sh" "${cc_source_mounted}"   \
   "${cc_output_mounted}")
 
-if [[ "$(id -nG ${USER})" == *"docker"* ]] || [[ ! -z ${DOCKER_HOST} ]]; then
+if [[ "$(id -nG "${USER}")" == *"docker"* ]] || [[ -n "${DOCKER_HOST}" ]]; then
     "${docker_command[@]}"
 else
     sudo "${docker_command[@]}"

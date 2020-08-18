@@ -20,7 +20,7 @@ ${0} [-s <source directory>] [-o <output directory>] [-t]
   -t  Build type. Optional.
       It can be: Debug; Release; RelWithDebInfo; MinSizeRel
       If not specified then CC_BUILD_TYPE environment variable will
-      be used. Any of them is mandatory.
+      be used. If not defined then Release will be used.
 EOF
 }
 
@@ -53,6 +53,10 @@ while getopts "hd:s:o:t:" option; do
     esac
 done
 
+if [[ -z "${cc_build_type}" ]]; then
+    cc_build_type="Release"
+fi
+
 if [[ "${cc_build_type}" != "Debug" ]] \
    && [[ "${cc_build_type}" != "Release" ]] \
    && [[ "${cc_build_type}" != "RelWithDebInfo" ]] \
@@ -64,10 +68,10 @@ fi
 
 if [[ -z "${cc_source_dir}" ]]; then
     script_dir=$(readlink ---canonicalize-existing --verbose                   \
-        "$(dirname "$(which "${0}")")")
+        "$(dirname "$(command -v "${0}")")")
     cc_source_dir=$(
         set +e
-        cd ${script_dir}
+        cd "${script_dir}"
         git rev-parse --show-toplevel
     )
 
@@ -101,7 +105,7 @@ if [[ "${developer_id}" -eq 0 ]] || [[ "${developer_group}" -eq 0 ]]; then
     exit 2
 fi
 
-mkdir -p ${cc_output_dir}
+mkdir --parents "${cc_output_dir}"
 cc_source_mounted="/mnt/cc_source"
 cc_output_mounted="/mnt/cc_output"
 
@@ -112,7 +116,7 @@ docker_command=("docker" "run" "--rm"                                          \
   "compass-devel" "/usr/local/bin/configurecompass.sh" "${cc_source_mounted}"  \
   "${cc_output_mounted}" "${cc_build_type}" "${cc_database_type}")
   
-if [[ "$(id -nG ${USER})" == *"docker"* ]] || [[ ! -z ${DOCKER_HOST} ]]; then
+if [[ "$(id -nG "${USER}")" == *"docker"* ]] || [[ -n "${DOCKER_HOST}" ]]; then
     "${docker_command[@]}"
 else
     sudo "${docker_command[@]}"
