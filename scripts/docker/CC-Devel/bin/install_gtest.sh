@@ -15,5 +15,5 @@ declare source_dir="/usr/src/googletest"
 cp --recursive --target-directory="${build_dir}" "${source_dir}/"*
 cd "${build_dir}"
 
-cmake "." -DCMAKE_INSTALL_PREFIX="/usr/lib"
+cmake "." -DCMAKE_INSTALL_PREFIX="/usr"
 make --jobs="$(nproc)" install

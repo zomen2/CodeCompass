@@ -26,6 +26,7 @@ WORKDIR /root
 COPY ./bin ./bin
 RUN chmod u+x \
     ./bin/install_gtest.sh                                                     \
+    ./bin/install_dbaccess.sh                                                  \
     ./bin/install_thrift.sh                                                    \
     ./bin/install_dependencies.sh
 
@@ -34,6 +35,7 @@ RUN ./bin/install_dependencies.sh
 # TODO: Add clang alternatives
 
 RUN ./bin/install_gtest.sh                                                     \
+  && ./bin/install_dbaccess.sh                                                 \
   && ./bin/install_thrift.sh -t "0.13.0"
 
 RUN mv \

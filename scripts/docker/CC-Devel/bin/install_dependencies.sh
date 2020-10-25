@@ -42,17 +42,16 @@ packages_to_install=(                                                          \
 declare running_ubuntu_codename
 running_ubuntu_codename="$(lsb_release --codename --short)"
 if [[ "${running_ubuntu_codename}" == "focal" ]]; then
-    packages_to_install+=(
+    packages_to_install+=(                                                     \
         "libssl-dev"                                                           \
         "g++-9"                                                                \
         "gcc-9"                                                                \
         "gcc-9-plugin-dev"                                                     \
-        "libodb-dev"                                                           \
-        "odb"                                                                  \
         "postgresql-server-dev-12"                                             \
     )
 elif [[ "${running_ubuntu_codename}" == "bionic" ]]; then
-    packages_to_install+=(
+    packages_to_install+=(                                                     \
+        "curl"                                                                 \
         "libssl1.0-dev"                                                        \
         "g++-7"                                                                \
         "gcc-7"                                                                \

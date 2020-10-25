@@ -13,15 +13,15 @@ trap cleanup EXIT
 
 function usage() {
     cat <<EOF
-${0} [-h] -t <thrift version> [-p]
+${0} [-h] -t <thrift version> [-d <install dir>]
   -h  Print this usage information. Optional.
-  -d  Install directory of thrift. Optional. "/opt/thrift" is the deafault.
+  -d  Install directory of thrift. Optional. "/opt/thrift" is the default.
       On Ubuntu 20.04 and newer, thrift packages are part of distribution, so
       on these versions this parameter has no effect. jar files of thrift-java
       placed in the distro standard place ("/usr/share/lib") as thrift-java
       would be a supported package.
       On older ubuntu release(s) the java jars are placed in
-      "<thrift lib dir>/java". So the compass makefile will search them fromit.
+      "<thrift lib dir>/java". So the compass makefile will search them from it.
   -t  Thrift version. Mandatory. For example '0.13.0'.
 EOF
 }
