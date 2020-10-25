@@ -1,58 +1,71 @@
 #!/usr/bin/env bash
 
 declare -a packages_to_install
-
 packages_to_install=(                                                          \
     "ant"                                                                      \
     "autoconf"                                                                 \
     "automake"                                                                 \
     "bison"                                                                    \
-    "clang-7"                                                                  \
+    "clang-10"                                                                 \
+    "cmake"                                                                    \
+    "ctags"                                                                    \
+    "default-jdk-headless"                                                     \
     "flex"                                                                     \
     "git"                                                                      \
-    "libboost-all-dev"                                                         \
-    "libclang-7-dev"                                                           \
+    "libboost-filesystem-dev"                                                  \
+    "libboost-log-dev"                                                         \
+    "libboost-program-options-dev"                                             \
+    "libboost-regex-dev"                                                       \
+    "libclang-10-dev"                                                          \
     "libcutl-dev"                                                              \
     "libevent-dev"                                                             \
     "libexpat1-dev"                                                            \
     "libgit2-dev"                                                              \
     "libgraphviz-dev"                                                          \
-    "llvm-7-dev"                                                               \
+    "libgtest-dev"                                                             \
+    "llvm-10-dev"                                                              \
     "libmagic-dev"                                                             \
-    "libodb-dev"                                                               \
     "libodb-pgsql-dev"                                                         \
     "libodb-sqlite-dev"                                                        \
     "libpq-dev"                                                                \
     "libsqlite3-dev"                                                           \
-    "libssl-dev"                                                               \
     "libtool"                                                                  \
     "make"                                                                     \
-    "odb"                                                                      \
+    "nodejs"                                                                   \
+    "npm"                                                                      \
     "pkg-config"                                                               \
     "wget"                                                                     \
     "xz-utils"                                                                 \
     "zlib1g-dev"                                                               \
 )
 
-declare running_ubuntu_codename="$(lsb_release --codename --short)"
-if [[ "${running_ubuntu_codename}" == "xenial" ]]; then
-    packages_to_install+=("nodejs-legacy")
+declare running_ubuntu_codename
+running_ubuntu_codename="$(lsb_release --codename --short)"
+if [[ "${running_ubuntu_codename}" == "focal" ]]; then
+    packages_to_install+=(
+        "libssl-dev"                                                           \
+        "g++-9"                                                                \
+        "gcc-9"                                                                \
+        "gcc-9-plugin-dev"                                                     \
+        "libodb-dev"                                                           \
+        "odb"                                                                  \
+        "postgresql-server-dev-12"                                             \
+    )
 elif [[ "${running_ubuntu_codename}" == "bionic" ]]; then
-    packages_to_install+=( "nodejs")
+    packages_to_install+=(
+        "libssl1.0-dev"                                                        \
+        "g++-7"                                                                \
+        "gcc-7"                                                                \
+        "gcc-7-plugin-dev"                                                     \
+        "postgresql-server-dev-10"
+    )
 else
     echo "Unsupported ubuntu release" 2>&1
     exit 1
 fi
 
-# Workaround. This single step provides that gtest installed properly on
-# xenial.
-apt-get install --yes  "libgtest-dev" "cmake"
-
-# Workaround. This single step provides that the JDK 8 will be installed only.
-apt-get install --yes "openjdk-8-jdk-headless"
-
 # Install packages that necessary for build CodeCompass.
-apt-get install --yes "${packages_to_install[@]}"
+DEBIAN_FRONTEND=noninteractive apt-get install --yes "${packages_to_install[@]}"
 
 # Workaround. This single step prevent unwanted remove of npm.
-apt-get install --yes "npm"
+#apt-get install --yes "npm"

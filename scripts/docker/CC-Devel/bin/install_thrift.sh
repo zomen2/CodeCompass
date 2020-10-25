@@ -15,14 +15,67 @@ function usage() {
     cat <<EOF
 ${0} [-h] -t <thrift version> [-p]
   -h  Print this usage information. Optional.
-  -d  Install directory of thrift. Optional. /opt/thrift is the deafault.
-  -t  Thrift version. Mandatory. For example '0.12.0'.
-  -p  Additional PATH components.
+  -d  Install directory of thrift. Optional. "/opt/thrift" is the deafault.
+      On Ubuntu 20.04 and newer, thrift packages are part of distribution, so
+      on these versions this parameter has no effect. jar files of thrift-java
+      placed in the distro standard place ("/usr/share/lib") as thrift-java
+      would be a supported package.
+      On older ubuntu release(s) the java jars are placed in
+      "<thrift lib dir>/java". So the compass makefile will search them fromit.
+  -t  Thrift version. Mandatory. For example '0.13.0'.
 EOF
 }
 
-thrift_install_dir="/opt/thrift"
-while getopts "ht:p:" OPTION; do
+function downloadThriftSource() {
+    mkdir --parents "${thrift_src_dir}"
+    wget --no-verbose --show-progress                                          \
+      "http://xenia.sote.hu/ftp/mirrors/www.apache.org/thrift/\
+${thrift_version}/${thrift_archive_dir}"                                       \
+        --output-document="${thrift_build_dir}/${thrift_archive_dir}"
+    tar --extract --gunzip --file="${thrift_build_dir}/${thrift_archive_dir}"  \
+        --directory="${thrift_src_dir}" --strip-components=1
+    rm "${thrift_build_dir}/${thrift_archive_dir}"
+
+    # Workaround: Maven repository access allowed by https only.
+    sed --expression='s,http://repo1.maven.org,https://repo1.maven.org,'       \
+        --in-place "${thrift_src_dir}/lib/java/gradle.properties"
+}
+
+function configureThrift() {
+    configure_cmd=("./configure" "--prefix=${thrift_install_dir}"              \
+      "--enable-libtool-lock" "--enable-tutorial=no" "--enable-tests=no"       \
+      "--with-libevent" "--with-zlib" "--without-nodejs" "--without-lua"       \
+      "--without-ruby" "--without-csharp" "--without-erlang" "--without-perl"  \
+      "--without-php" "--without-php_extension" "--without-dart"               \
+      "--without-haskell" "--without-go" "--without-rs" "--without-haxe"       \
+      "--without-dotnetcore" "--without-d" "--without-qt4" "--without-qt5"     \
+      "--without-python" "--without-java")
+
+    "${configure_cmd[@]}"
+}
+
+function makeAndInstallJavaJars() {
+    pushd "${thrift_java_src_dir}"
+    ./gradlew assemble
+    # Install java components by hand
+    mkdir --parents "${java_lib_install_dir}"
+    # Why this strange name the build output has?
+    mv "${thrift_java_src_dir}/build/libs/libthrift-${thrift_version}-\
+SNAPSHOT.jar"                                                                  \
+      "${java_lib_install_dir}/libthrift-${thrift_version}.jar"
+    mv "${thrift_java_src_dir}/build/deps/"*.jar "${java_lib_install_dir}"
+    popd
+}
+
+function makeAndInstallCppDevel() {
+    pushd "${thrift_src_dir}"
+    configureThrift
+    make --jobs="$(nproc)" install
+    popd
+}
+
+declare thrift_install_dir="/opt/thrift"
+while getopts "ht:d:" OPTION; do
     case ${OPTION} in
         h)
             usage
@@ -30,9 +83,6 @@ while getopts "ht:p:" OPTION; do
             ;;
         d)
             thrift_install_dir="${OPTARG}"
-            ;;
-        p)
-            additional_path="${OPTARG}"
             ;;
         t)
             thrift_version="${OPTARG}"
@@ -50,55 +100,30 @@ if [[ -z "${thrift_version}" ]]; then
     exit 1
 fi
 
-if [[ -n "${additional_path}" ]]; then
-    export PATH="${additional_path}":"${PATH}"
+declare thrift_archive_dir="thrift-${thrift_version}.tar.gz"
+
+declare thrift_build_dir
+thrift_build_dir=$(mktemp -d -t "thriftbuild_XXXXXXXX")
+declare thrift_src_dir="${thrift_build_dir}/thrift"
+declare thrift_java_src_dir="${thrift_src_dir}/lib/java"
+
+downloadThriftSource
+
+declare running_ubuntu_codename
+running_ubuntu_codename="$(lsb_release --codename --short)"
+declare java_lib_install_dir
+if [[ "${running_ubuntu_codename}" == "focal" ]]; then
+    DEBIAN_FRONTEND=noninteractive apt-get install --yes                       \
+        "libthrift-dev" "thrift-compiler"
+    java_lib_install_dir="/usr/share/java"
+elif [[ "${running_ubuntu_codename}" == "bionic" ]]; then
+    makeAndInstallCppDevel
+    java_lib_install_dir=$(PKG_CONFIG_PATH="${thrift_install_dir}"\
+"/lib/pkgconfig" pkg-config --variable=libdir thrift)
+    java_lib_install_dir="${java_lib_install_dir}/java"
+else
+    echo "Unsupported ubuntu release" 2>&1
+    exit 1
 fi
 
-thrift_archive_dir="thrift-${thrift_version}.tar.gz"
-thrift_build_dir="/tmp/thrift"
-thrift_src_dir="${thrift_build_dir}/thrift"
-java_lib_install_dir="${thrift_install_dir}/lib/java"
-
-mkdir --parents "${thrift_src_dir}"
-wget --no-verbose \
-  "http://xenia.sote.hu/ftp/mirrors/www.apache.org/thrift/"\
-"${thrift_version}/${thrift_archive_dir}"                                      \
-    --output-document="${thrift_build_dir}/${thrift_archive_dir}"
-tar --extract --gunzip --file="${thrift_build_dir}/${thrift_archive_dir}"      \
-    --directory="${thrift_src_dir}" --strip-components=1
-rm "${thrift_build_dir}/${thrift_archive_dir}"
-
-# Workaround: Maven repository access allowed by https only.
-sed --expression='s,http://repo1.maven.org,https://repo1.maven.org,'           \
-    --in-place "${thrift_src_dir}/lib/java/gradle.properties"
-
-# TODO gradle proxy definitions.
-configure_cmd=("./configure" "--prefix=${thrift_install_dir}"                  \
-  "--enable-libtool-lock" "--enable-tutorial=no" "--enable-tests=no"           \
-  "--with-libevent" "--with-zlib" "--without-nodejs" "--without-lua"           \
-  "--without-ruby" "--without-csharp" "--without-erlang" "--without-perl"      \
-  "--without-php" "--without-php_extension" "--without-dart"                   \
-  "--without-haskell" "--without-go" "--without-rs" "--without-haxe"           \
-  "--without-dotnetcore" "--without-d" "--without-qt4" "--without-qt5"         \
-  "--without-python" "--with-java")
-
-pushd "${thrift_src_dir}"
-
-# Configure thrift
-"${configure_cmd[@]}"
-
-# Make java jars
-pushd "lib/java"
-./gradlew assemble
-popd
-
-# Make C++ libs
-make --jobs="$(nproc)" install
-
-# Install java components by hand
-mkdir --parents "${java_lib_install_dir}"
-mv "${thrift_src_dir}/lib/java/build/libs/libthrift-${thrift_version}.jar"     \
-  "${java_lib_install_dir}"
-mv "${thrift_src_dir}/lib/java/build/deps/"*.jar "${java_lib_install_dir}"
-
-popd
+makeAndInstallJavaJars

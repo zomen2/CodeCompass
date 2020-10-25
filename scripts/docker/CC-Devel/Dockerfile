@@ -16,7 +16,11 @@ RUN sed --in-place --expression='s/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/'     \
 
 ENV LANG en_US.UTF-8
 
-RUN apt-get install --yes apt-utils gnupg2 lsb-release wget 
+RUN DEBIAN_FRONTEND=noninteractive apt-get install --yes                       \
+    apt-utils                                                                  \
+    gpgv                                                                       \
+    lsb-release                                                                \
+    wget
 
 WORKDIR /root
 COPY ./bin ./bin
@@ -30,7 +34,7 @@ RUN ./bin/install_dependencies.sh
 # TODO: Add clang alternatives
 
 RUN ./bin/install_gtest.sh                                                     \
-  && ./bin/install_thrift.sh -t "0.12.0"
+  && ./bin/install_thrift.sh -t "0.13.0"
 
 RUN mv \
     /root/bin/fetchcompass.sh                                                  \

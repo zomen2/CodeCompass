@@ -5,16 +5,18 @@ set -e
 function usage() {
     cat <<EOF
 ${0} [-h]
-${0} [-s <source directory>] [-o <output directory>] [u]
+${0} [-s <source directory>] [-o <output directory>] [-u] [-i]
 
   -h  Print this usage information. Optional.
+  -i  Image neme of the container that this script will be run. If not specified
+      then "compass-devel" used as default.
   -s  Directory of CodeCompass source. If not specified this option
       CC_SOURCE environment variable will be used. If any of them not specified,
       this script uses the root directory of this git repository as Compass
       source.
   -o  Directory of generated output artifacts. If not specified then
-      CC_BUILD environment variable will be used. Any of them"
-      is mandatory."
+      CC_BUILD environment variable will be used. Any of them
+      is mandatory.
   -u  Run container as the same user as caller. Otherwise as root.
 EOF
 }
@@ -22,11 +24,15 @@ EOF
 cc_source_dir="${CC_SOURCE}"
 cc_output_dir="${CC_BUILD}"
 run_as_root="true"
-while getopts "hs:o:u" OPTION; do
+image_name="compass-devel"
+while getopts "hs:o:ui:" OPTION; do
     case ${OPTION} in
         h)
             usage
             exit 0
+            ;;
+        i)
+            image_name="${OPTARG}"
             ;;
         s)
             cc_source_dir="${OPTARG}"
@@ -46,7 +52,8 @@ while getopts "hs:o:u" OPTION; do
 done
 
 if [[ -z "${cc_source_dir}" ]]; then
-    script_dir=$(readlink --canonicalize-existing --verbose "$(dirname "$(which "${0}")")")
+    script_dir=$(readlink --canonicalize-existing --verbose                    \
+        "$(dirname "$(command -v "${0}")")")
     cc_source_dir=$(
         set +e
         cd ${script_dir}
@@ -59,7 +66,7 @@ if [[ -z "${cc_source_dir}" ]]; then
         exit 2
     fi
 fi
-cc_source_dir=$(readlink --canonicalize-existing --verbose "$cc_source_dir")
+cc_source_dir=$(readlink --canonicalize-existing --verbose "${cc_source_dir}")
 
 if [[ -z "${cc_output_dir}" ]]; then
     echo "Output directory of build should be defined." >&2
@@ -100,7 +107,7 @@ fi
 docker_command+=(
   "--mount" "type=bind,source=${cc_source_dir},target=${cc_source_mounted}"    \
   "--mount" "type=bind,source=${cc_output_dir},target=${cc_output_mounted}"    \
-  "compass-devel" "/bin/bash")
+  "${image_name}" "/bin/bash")
 
 if [[ "$(id -nG ${USER})" == *"docker"* ]] || [[ ! -z ${DOCKER_HOST} ]]; then
     "${docker_command[@]}"
