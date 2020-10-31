@@ -37,5 +37,5 @@ add_subdirectory(webserver)
 
 # Install java libraries
 install(DIRECTORY
-  lib/java/
+  "${THRIFT_LIBTHRIFT_JARS_DIR}"
   DESTINATION "${INSTALL_JAVA_LIB_DIR}")

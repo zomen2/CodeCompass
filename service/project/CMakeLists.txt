@@ -62,7 +62,7 @@ target_compile_options(projectthrift PUBLIC -fPIC)
 
 add_dependencies(projectthrift commonthrift)
 
-set(CMAKE_JAVA_INCLUDE_PATH ${PROJECT_SOURCE_DIR}/lib/java/*)
+set(CMAKE_JAVA_INCLUDE_PATH ${THRIFT_LIBTHRIFT_JARS_DIR}/*)
 
 add_jar(corethriftjava
   ${CMAKE_CURRENT_BINARY_DIR}/gen-java/cc/service/core/Description.java
