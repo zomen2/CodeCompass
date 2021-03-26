@@ -31,29 +31,32 @@
 
 #include "clangastvisitor.h"
 #include "relationcollector.h"
-#include "manglednamecache.h"
+#include "entitycache.h"
 #include "ppincludecallback.h"
 #include "ppmacrocallback.h"
 #include "doccommentcollector.h"
+#include "diagnosticmessagehandler.h"
 
 namespace cc
 {
 namespace parser
 {
 
+namespace fs = boost::filesystem;
+
 class VisitorActionFactory : public clang::tooling::FrontendActionFactory
 {
 public:
   static void cleanUp()
   {
-    MyFrontendAction::_mangledNameCache.clear();
+    MyFrontendAction::_entityCache.clear();
   }
 
   static void init(ParserContext& ctx_)
   {
     util::OdbTransaction {ctx_.db} ([&] {
       for (const model::CppAstNode& node : ctx_.db->query<model::CppAstNode>())
-        MyFrontendAction::_mangledNameCache.insert(node);
+        MyFrontendAction::_entityCache.insert(node);
     });
   }
 
@@ -61,9 +64,9 @@ public:
   {
   }
 
-  clang::FrontendAction* create() override
+  std::unique_ptr<clang::FrontendAction> create() override
   {
-    return new MyFrontendAction(_ctx);
+    return std::make_unique<MyFrontendAction>(_ctx);
   }
 
 private:
@@ -73,8 +76,8 @@ private:
     MyConsumer(
       ParserContext& ctx_,
       clang::ASTContext& context_,
-      MangledNameCache& mangledNameCache_)
-        : _mangledNameCache(mangledNameCache_), _ctx(ctx_), _context(context_)
+      EntityCache& entityCache_)
+        : _entityCache(entityCache_), _ctx(ctx_), _context(context_)
     {
     }
 
@@ -82,7 +85,7 @@ private:
     {
       {
         ClangASTVisitor clangAstVisitor(
-          _ctx, _context, _mangledNameCache, _clangToAstNodeId);
+          _ctx, _context, _entityCache, _clangToAstNodeId);
         clangAstVisitor.TraverseDecl(context_.getTranslationUnitDecl());
       }
 
@@ -95,7 +98,7 @@ private:
       if (!_ctx.options.count("skip-doccomment"))
       {
         DocCommentCollector docCommentCollector(
-          _ctx, _context, _mangledNameCache, _clangToAstNodeId);
+          _ctx, _context, _entityCache, _clangToAstNodeId);
         docCommentCollector.TraverseDecl(context_.getTranslationUnitDecl());
       }
       else
@@ -103,7 +106,7 @@ private:
     }
 
   private:
-    MangledNameCache& _mangledNameCache;
+    EntityCache& _entityCache;
     std::unordered_map<const void*, model::CppAstNodeId> _clangToAstNodeId;
 
     ParserContext& _ctx;
@@ -126,9 +129,9 @@ private:
       auto& pp = compiler_.getPreprocessor();
 
       pp.addPPCallbacks(std::make_unique<PPIncludeCallback>(
-        _ctx, compiler_.getASTContext(), _mangledNameCache, pp));
+        _ctx, compiler_.getASTContext(), _entityCache, pp));
       pp.addPPCallbacks(std::make_unique<PPMacroCallback>(
-        _ctx, compiler_.getASTContext(), _mangledNameCache, pp));
+        _ctx, compiler_.getASTContext(), _entityCache, pp));
 
       return true;
     }
@@ -137,11 +140,11 @@ private:
       clang::CompilerInstance& compiler_, llvm::StringRef) override
     {
       return std::unique_ptr<clang::ASTConsumer>(
-        new MyConsumer(_ctx, compiler_.getASTContext(), _mangledNameCache));
+        new MyConsumer(_ctx, compiler_.getASTContext(), _entityCache));
     }
 
   private:
-    static MangledNameCache _mangledNameCache;
+    static EntityCache _entityCache;
 
     ParserContext& _ctx;
   };
@@ -149,14 +152,14 @@ private:
   ParserContext& _ctx;
 };
 
-MangledNameCache VisitorActionFactory::MyFrontendAction::_mangledNameCache;
+EntityCache VisitorActionFactory::MyFrontendAction::_entityCache;
 
 bool CppParser::isSourceFile(const std::string& file_) const
 {
   const std::vector<std::string> cppExts{
     ".c", ".cc", ".cpp", ".cxx", ".o", ".so", ".a"};
 
-  std::string ext = boost::filesystem::extension(file_);
+  std::string ext = fs::extension(file_);
   std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 
   return std::find(cppExts.begin(), cppExts.end(), ext) != cppExts.end();
@@ -187,16 +190,13 @@ std::map<std::string, std::string> CppParser::extractInputOutputs(
   {
     if (state == OParam)
     {
-      boost::filesystem::path absolutePath =
-        boost::filesystem::absolute(arg, command_.Directory);
-
+      fs::path absolutePath = fs::absolute(arg, command_.Directory);
       output = absolutePath.native();
       state = None;
     }
     else if (isSourceFile(arg) && !isNonSourceFlag(arg))
     {
-      boost::filesystem::path absolutePath =
-        boost::filesystem::absolute(arg, command_.Directory);
+      fs::path absolutePath = fs::absolute(arg, command_.Directory);
       sources.insert(absolutePath.native());
     }
     else if (arg == "-c")
@@ -209,7 +209,7 @@ std::map<std::string, std::string> CppParser::extractInputOutputs(
   {
     for (const std::string& src : sources)
     {
-      std::string extension = boost::filesystem::extension(src);
+      std::string extension = fs::extension(src);
       inToOut[src] = src.substr(0, src.size() - extension.size() - 1) + ".o";
     }
   }
@@ -232,7 +232,7 @@ model::BuildActionPtr CppParser::addBuildAction(
 
   model::BuildActionPtr buildAction(new model::BuildAction);
 
-  std::string extension = boost::filesystem::extension(command_.Filename);
+  std::string extension = fs::extension(command_.Filename);
 
   buildAction->command = boost::algorithm::join(command_.CommandLine, " ");
   buildAction->type
@@ -312,7 +312,9 @@ int CppParser::parseWorker(const clang::tooling::CompileCommand& command_)
 
   if (!compilationDb)
   {
-    LOG(error) << "Failed to create compilation database from command-line. " << compilationDbLoadError;
+    LOG(error)
+      << "Failed to create compilation database from command-line. "
+      << compilationDbLoadError;
     return 1;
   }
 
@@ -322,8 +324,17 @@ int CppParser::parseWorker(const clang::tooling::CompileCommand& command_)
 
   //--- Start the tool ---//
 
+  fs::path sourceFullPath(command_.Filename);
+  if (!sourceFullPath.is_absolute())
+    sourceFullPath = fs::path(command_.Directory) / command_.Filename;
+
   VisitorActionFactory factory(_ctx);
-  clang::tooling::ClangTool tool(*compilationDb, command_.Filename);
+  clang::tooling::ClangTool tool(*compilationDb, sourceFullPath.string());
+
+  llvm::IntrusiveRefCntPtr<clang::DiagnosticOptions> diagOpts
+    = new clang::DiagnosticOptions();
+  DiagnosticMessageHandler diagMsgHandler(diagOpts.get(), _ctx.srcMgr, _ctx.db);
+  tool.setDiagnosticConsumer(&diagMsgHandler);
 
   int error = tool.run(&factory);
 
@@ -410,6 +421,24 @@ std::vector<std::vector<std::string>> CppParser::createCleanupOrder()
       fileNameToVertex.erase(path);
     }
 
+    /* Circular dependencies in the parsed code would cause
+     * this loop to be infinite. If no files were put in
+     * the current cleanup level, there is probably a
+     * circular dependency somewhere. The rest of the
+     * to-be-cleaned up files can be put in an additional level.
+     */
+    if (order[index].size() == 0)
+    {
+      for (const auto& item : fileNameToVertex)
+      {
+        order[index].push_back(item.first);
+      }
+
+      fileNameToVertex.clear();
+
+      LOG(debug) << "[cppparser] Circular dependency detected.";
+    }
+
     ++index;
   }
   LOG(debug) << "[cppparser] Topology has " << index << " levels.";
@@ -452,7 +481,7 @@ void CppParser::markModifiedFiles()
   // Detect changed translation units through the build actions.
   for (const std::string& input
     : _ctx.options["input"].as<std::vector<std::string>>())
-    if (boost::filesystem::is_regular_file(input))
+    if (fs::is_regular_file(input))
     {
       std::string errorMsg;
 
@@ -606,11 +635,11 @@ bool CppParser::cleanupWorker(const std::string& path_)
               {
                 // Delete CppInheritance
                 _ctx.db->erase_query<model::CppInheritance>(
-                  odb::query<model::CppInheritance>::derived == astNode.mangledNameHash);
+                  odb::query<model::CppInheritance>::derived == astNode.entityHash);
 
                 // Delete CppFriendship
                 _ctx.db->erase_query<model::CppFriendship>(
-                  odb::query<model::CppFriendship>::target == astNode.mangledNameHash);
+                  odb::query<model::CppFriendship>::target == astNode.entityHash);
               }
             }
 
@@ -664,7 +693,7 @@ bool CppParser::parse()
 
   for (const std::string& input
     : _ctx.options["input"].as<std::vector<std::string>>())
-    if (boost::filesystem::is_regular_file(input))
+    if (fs::is_regular_file(input))
       success
         = success && parseByJson(input, _ctx.options["jobs"].as<int>());
 
@@ -686,7 +715,7 @@ void CppParser::markByInclusion(model::FilePtr file_)
 {
   auto inclusions = _ctx.db->query<model::CppHeaderInclusion>(
     odb::query<model::CppHeaderInclusion>::included == file_->id);
-  
+
   for (auto inc : inclusions)
   {
     model::FilePtr loaded = inc.includer.load();

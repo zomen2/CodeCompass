@@ -13,13 +13,13 @@ namespace parser
 PPIncludeCallback::PPIncludeCallback(
   ParserContext& ctx_,
   clang::ASTContext& astContext_,
-  MangledNameCache& mangledNameCache_,
+  EntityCache& entityCache_,
   clang::Preprocessor&) :
     _ctx(ctx_),
     _cppSourceType("CPP"),
     _clangSrcMgr(astContext_.getSourceManager()),
     _fileLocUtil(astContext_.getSourceManager()),
-    _mangledNameCache(mangledNameCache_)
+    _entityCache(entityCache_)
 {
 }
 
@@ -40,8 +40,7 @@ model::CppAstNodePtr PPIncludeCallback::createFileAstNode(
   model::CppAstNodePtr astNode(new model::CppAstNode());
 
   astNode->astValue = file_->path;
-  astNode->mangledName = std::to_string(file_->id);
-  astNode->mangledNameHash = util::fnvHash(astNode->mangledName);
+  astNode->entityHash = util::fnvHash(std::to_string(file_->id));
   astNode->symbolType = model::CppAstNode::SymbolType::File;
   astNode->astType = model::CppAstNode::AstType::Usage;
 
@@ -103,7 +102,7 @@ void PPIncludeCallback::InclusionDirective(
   model::CppAstNodePtr fileNode =
     createFileAstNode(included, filenameRange_.getAsRange());
 
-  if (_mangledNameCache.insert(*fileNode))
+  if (_entityCache.insert(*fileNode))
     _astNodes.push_back(fileNode);
 
   model::CppHeaderInclusionPtr inclusion(new model::CppHeaderInclusion);

@@ -22,6 +22,7 @@ function (declare, domClass, dom, style, query, topic, ContentPane, Dialog,
     postCreate : function () {
       this.inherited(arguments);
 
+      this.set('title', 'Build logs');
       this._table = dom.create('table', { class : 'buildlogtable' });
 
       this._addHeader();
@@ -42,10 +43,12 @@ function (declare, domClass, dom, style, query, topic, ContentPane, Dialog,
           if (!that.textmodule)
             console.error("Editor object must be given in constructor");
 
-          that.textmodule.set('selection', {
-            from : buildLog.range.startpos,
-            to   : buildLog.range.endpos
-          });
+          that.textmodule.set('selection', [
+            buildLog.range.startpos.line,
+            buildLog.range.startpos.column,
+            buildLog.range.endpos.line,
+            buildLog.range.endpos.column
+          ]);
 
           that.textmodule.jumpToPos(
             buildLog.range.startpos.line,
@@ -107,7 +110,7 @@ function (declare, domClass, dom, style, query, topic, ContentPane, Dialog,
      */
     clearBuildLogs : function () {
       dom.empty(this._table);
-      _addHeader();
+      this._addHeader();
     },
 
     /**
@@ -228,7 +231,28 @@ function (declare, domClass, dom, style, query, topic, ContentPane, Dialog,
 
       this._header = {
         header      : dom.create('div',  { class : 'header'      }),
-        parsestatus : dom.create('span', { class : 'parsestatus' }),
+        parsestatus : dom.create('span', {
+          class     : 'parsestatus',
+          onclick   : function () {
+            var dialog = that._buildDialog;
+            dialog.clearBuildLogs();
+
+            var file = urlHandler.getFileInfo();
+            var buildLogs = model.project.getBuildLog(file.id);
+
+            if (buildLogs.length === 0)
+            {
+              new Dialog({
+                title   : 'Build logs',
+                content : '<b>No build logs for this file.</b>'
+              }).show();
+              return;
+            }
+
+            dialog.addBuildLogs(buildLogs);
+            dialog.show();
+          }
+        }),
         filename    : dom.create('span', { class : 'filename'    }),
         path        : dom.create('span', { class : 'path'        }),
         colons      : dom.toDom('<span class="colons">::</span>')
@@ -318,6 +342,14 @@ function (declare, domClass, dom, style, query, topic, ContentPane, Dialog,
       this.set('header', this._fileInfo);
 
       this._getSyntaxHighlight(this._fileInfo);
+
+      if (gtag) {
+        gtag('event', 'page_view', {
+          page_location: window.location.href,
+          page_path: window.location.pathname + window.location.hash,
+          page_title: urlFileInfo.path
+        });
+      }
     },
 
     /**
@@ -387,6 +419,13 @@ function (declare, domClass, dom, style, query, topic, ContentPane, Dialog,
       this._marks = {};
     },
 
+    clearSelection : function () {
+      for (var markId in this._marks) {
+        if (this._marks[markId].className === 'cb-marked-select')
+          this.clearMark(markId);
+      }
+    },
+
     _eventHandler : function (event) {
       //--- Select the clicked word ---//
 
@@ -404,6 +443,16 @@ function (declare, domClass, dom, style, query, topic, ContentPane, Dialog,
         this.set('selection', [pos[0], token.start, pos[0], token.end]);
       }
 
+      //--- Open Info Tree ---//
+
+      var astNodeInfo
+        = astHelper.getAstNodeInfoByPosition(pos, this._fileInfo);
+
+      topic.publish('codecompass/infotree', {
+        fileType : this._fileInfo.type,
+        elementInfo : astNodeInfo
+      });
+
       //--- Highlighting the same occurrence of the selected entity ---//
 
       this._markUsages(pos, this._fileInfo);
@@ -416,8 +465,6 @@ function (declare, domClass, dom, style, query, topic, ContentPane, Dialog,
       //--- Ctrl-click ---//
 
       if (event.button === 0 && event.ctrlKey) {
-        var astNodeInfo
-          = astHelper.getAstNodeInfoByPosition(pos, this._fileInfo);
         var service = model.getLanguageService(this._fileInfo.type);
         astHelper.jumpToDef(astNodeInfo.id, service);
       }
@@ -431,12 +478,15 @@ function (declare, domClass, dom, style, query, topic, ContentPane, Dialog,
 
       var astNodeInfo = astHelper.getAstNodeInfoByPosition(position, fileInfo);
 
+      if (!astNodeInfo)
+        return;
+
       var refTypes = model.cppservice.getReferenceTypes(astNodeInfo.id);
       var usages = model.cppservice.getReferences(
         astNodeInfo.id,
         refTypes['Usage']);
 
-      this.clearAllMarks();
+      this.clearSelection();
 
       var fl = that._codeMirror.options.firstLineNumber;
       usages.forEach(function (astNodeInfo) {
@@ -508,7 +558,6 @@ function (declare, domClass, dom, style, query, topic, ContentPane, Dialog,
       }
 
       setTimeout(function () {
-        that.clearAllMarks();
         var lines = urlHandler.getFileContent().split('\n').length;
         for (var i = 0; i < lines; i += that._syntaxHighlightStep) {
           var range = new FileRange({
@@ -523,7 +572,7 @@ function (declare, domClass, dom, style, query, topic, ContentPane, Dialog,
             syntax.forEach(function (s) {
               this.markText(s.range.startpos, s.range.endpos, {
                 className: s.className
-              }, true);
+              });
             }, that);
           });
         }
@@ -581,8 +630,6 @@ function (declare, domClass, dom, style, query, topic, ContentPane, Dialog,
     _setSelectionAttr : function (range) {
       var that = this;
       this.selection = range;
-
-      this.clearAllMarks();
 
       setTimeout(function () {
         var fl = that._codeMirror.options.firstLineNumber;

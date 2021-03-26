@@ -1,4 +1,5 @@
 #include <pluginservice/pluginservice.h>
+#include <boost/regex.hpp>
 
 namespace
 {
@@ -37,20 +38,36 @@ void PluginServiceHandler::getPlugins(std::vector<std::string>& return_)
     return_.push_back(it.first);
 }
 
-void PluginServiceHandler::getWebPlugins(std::vector<std::string>& return_)
+void PluginServiceHandler::getThriftPlugins(std::vector<std::string>& return_)
 {
   std::string webrootDir = _configuration["webguiDir"].as<std::string>();
 
   std::vector<std::string> generatedFiles = getFiles(
     webrootDir + "/scripts/codecompass/generated");
 
-  std::vector<std::string> jsModules = getFiles(
-    webrootDir + "/scripts/codecompass/view");
-
   for (const std::string& file_ : generatedFiles)
-    return_.push_back(file_.substr(webrootDir.size()));
+    return_.push_back(file_.substr(webrootDir.size() + 1)); // +1 to remove starting slash
+}
+
+void PluginServiceHandler::getWebPlugins(std::vector<std::string>& return_)
+{
+  std::string webrootDir = _configuration["webguiDir"].as<std::string>();
+
+  std::vector<std::string> jsModules = getFiles(
+    webrootDir + "/scripts/release/codecompass/view");
+
+  /*
+   * Pattern to match only *.js files which does not contain the '.js.' substring, to exclude:
+   * *.js.uncompressed.js
+   * *.js.consoleStripped.js
+   * *.js.map
+   */
+  static const boost::regex pattern("^((?!\\.js\\.).)*\\.js$");
   for (const std::string& file_ : jsModules)
-    return_.push_back(file_.substr(webrootDir.size()));
+  {
+    if (boost::regex_match(file_, pattern))
+      return_.push_back(file_.substr(webrootDir.size() + 1)); // +1 to remove starting slash
+  }
 }
 
 void PluginServiceHandler::getWebStylePlugins(std::vector<std::string>& return_)
@@ -60,7 +77,7 @@ void PluginServiceHandler::getWebStylePlugins(std::vector<std::string>& return_)
   std::vector<std::string> cssFiles = getFiles(webrootDir + "/style");
 
   for (const std::string& file_ : cssFiles)
-    return_.push_back(file_.substr(webrootDir.size()));
+    return_.push_back(file_.substr(webrootDir.size() + 1)); // +1 to remove starting slash
 }
 
 }

@@ -4,7 +4,7 @@
 CodeCompass uses relational database system for data storage. Currently *SQLite*
 and *PostgreSQL* are supported. The first one is for trial purposes and for
 smaller projects only, as SQLite can slow down considerably on large project.
-PostgreSQL is recommender for any production operation on medium-size or larger
+PostgreSQL is recommended for any production operation on medium-size or larger
 projects. The database backend used is decided when compiling CodeCompass, via
 the `-DDATABASE` CMake flag (see chapter [Build CodeCompass](deps.md)).
 
@@ -20,7 +20,7 @@ PostgreSQL can be installed from the package manager, using
 set up an automatically starting local server on the default port `5432`.
 
 This server, by default, is only accessible for an automatically created system
-user named `postgres`. However, CodeCompass' database layer only supports
+user named `postgres`. However, CodeCompass's database layer only supports
 password-based authentication. First, you have to create a user to access the
 database:
 
@@ -32,7 +32,7 @@ psql
 In the PostgreSQL command-line shell, type:
 
 ```sql
-CREATE USER compass WITH SUPERUSER LOGIN PASSWORD 'mypassword';
+CREATE USER compass WITH SUPERUSER LOGIN PASSWORD '<mypassword>';
 ```
 
 You can exit this shell by typing `\q` and pressing the `ENTER` key. A user
@@ -74,7 +74,7 @@ file](http://clang.llvm.org/docs/JSONCompilationDatabase.html).
 
 ### Get compilation database from CMake
 If the project uses CMake build system then you can create the compilation
-database by CMake with the option `CMAKE_EXPORT_COMPILE_COMMANDS`:
+database via CMake with the option `CMAKE_EXPORT_COMPILE_COMMANDS`:
 
 ```bash
 cmake .. -DCMAKE_EXPORT_COMPILE_COMMANDS=1
@@ -104,7 +104,7 @@ For parsing a project with CodeCompass, the following command has to be emitted:
 CodeCompass_parser -w <workspace> -n <name> -i <input1> -i <input2> -d <connection_string>
 ```
 
-- **Workspace**: This is a directory where the some parse results, and different
+- **Workspace**: This is a directory where some parse results and different
   configuration and log files are located. **Please ensure that this directory
   is not located under any *input* folder, or under your project's source file
   tree.**
@@ -160,9 +160,8 @@ CodeCompass_parser \
 
 As an experimental feature CodeCompass supports incremental parsing, updating an
 existing database and project workspace by detecting the added, deleted and modified files.  
-Incremental parsing depends on that the build tooling generates a **complete** compilation database, 
-therefore the build commands for only the modified files are not sufficient.
-In case of CMake, using the result of the `CMAKE_EXPORT_COMPILE_COMMANDS=ON` argument, the 
+Incremental parsing depends on the fact, that the build tool generates a **complete** compilation database, therefore the build commands for only the modified files are not sufficient.
+In case of CMake, using the result of the `CMAKE_EXPORT_COMPILE_COMMANDS=ON` argument, the
 compilation database will always contain all files.
 Currently the C++ and metrics parsers support incremental parsing, while other parsers
 just execute a forced reparse.
@@ -171,12 +170,12 @@ In case the analyzed software project was significantly changed (e.g. as a resul
 restructuring the project), dropping the workspace database and performing a full, clean
 parse can yield results faster. This can be achieved by passing the `--force` (or `-f`)
 command line option which can be specified for `CodeCompass_parser`. Another solution is
-to set the `--incremental-threshold` option, which configures an upper threshold of change 
-for incremental parsing (in the percentage of changed files). Above the threshold a full, 
+to set the `--incremental-threshold` option, which configures an upper threshold of change
+for incremental parsing (in the percentage of changed files). Above the threshold a full,
 clean reparse is performed. The default value for this threshold is *10%*.
 
 In order to review the changes detected by the incremental parser without performing any
-action that would alter the workspace database or directory, the `--dry-run` command line 
+action that would alter the workspace database or directory, the `--dry-run` command line
 option can be specified for `CodeCompass_parser`.
 
 ## 3. Start the web server
@@ -184,30 +183,95 @@ You can start the CodeCompass webserver with `CodeCompass_webserver` binary in
 the CodeCompass installation directory.
 
 ```bash
-CodeCompass_webserver -w <workdir> -p <port> -d <connection_string>
+CodeCompass_webserver -w <workdir> -p <port>
 ```
 
 - **Workspace**: This is a directory where the some parse results, and different
   configuration and log files are located. This should be the same as what was
   provided to the `CodeCompass_parser` binary in *Step 2*.
 - **Port**: Port number of the web server to listen on.
-- **Database**: The plugins can use an SQL database as storage. By the
-  connection string the user can give the location of a running database
-  system. In the parsing session the database name could have been provided.
-  This database name is written in a config file in the workspace directory, so
-  it is useless to provide it at server start.
 
 For full documentation see `CodeCompass_webserver -h`.
+
+### Enabling authentication
+
+To enable this feature, an `authentication.json` file should be created under
+the workspace directory (`--workspace` or `-w` flag given to the server).
+At a bare minimum, to restrict access, an `"enabled": true` MUST be present
+in the JSON.
+
+For further details and examples, **see the guide on 
+[Requiring authentication](authentication.md).**
+
+### Enabling HTTPS (SSL/TLS) secure server
+
+By default, CodeCompass starts a conventional, plain-text HTTP server on the
+port specified.
+In case a `certificate.pem` file exists under the `--workpace` directory, the
+server *will* start in SSL mode.
+
+The certificate file shall be in PEM format, which looks like shown below. If
+the certificate you received from your Certificate Authority (or self-created)
+isn't in PEM format, use an SSL tool like [OpenSSL](http://openssl.org) to
+convert it.
+
+Normally, the private and public key (the certificate) are created as separate
+files. They **must** be concatenated to *one* `certificate.pem` file, to look
+like the following.
+[Further details on SSL](http://github.com/cesanta/mongoose/blob/5.4/docs/SSL.md#how-to-create-ssl-certificate-file)
+is available from Mongoose, the library CodeCompass uses for HTTP server.
+
+~~~{.pem}
+-----BEGIN RSA PRIVATE KEY-----
+MIIEogIBAAKCAQEAwONaLOP7EdegqjRuQKSDXzvHmFMZfBufjhELhNjo5KsL4ieH
+hYN0Zii2yTb63jGxKY6gH1R/r9dL8kXaJmcZrfSa3AgywnteJWg=
+-----END RSA PRIVATE KEY-----
+-----BEGIN CERTIFICATE-----
+MIIDBjCCAe4CCQCX05m0b053QzANBgkqhkiG9w0BAQQFADBFMQswCQYDVQQGEwJB
+SEGI4JSxV56lYg==
+-----END CERTIFICATE-----
+~~~
+
+> **Note:** Make sure your certificate file itself is not password-protected,
+> as requiring the password to be entered will make the server unable to start
+> on its own.
+
+If intermediate certificates are used because your certificate isn't signed
+by a Root CA (this is common), the certificate chain's elements (also in, or
+converted to PEM format) should also be concatenated into the `certificate.pem`
+file:
+
+~~~{.pem}
+-----BEGIN RSA PRIVATE KEY-----
+Your certificate's private key
+-----END RSA PRIVATE KEY-----
+-----BEGIN CERTIFICATE-----
+Your certificate (the public key)
+-----END CERTIFICATE-----
+-----BEGIN CERTIFICATE-----
+The certificate of the CA that signed your certificate
+-----END CERTIFICATE-----
+~~~
+
+### Enabling Google Analytics
+
+To enable this feature, a `ga.txt` file should be created under
+the workspace directory (`--workspace` or `-w` flag given to the server).
+The `ga.txt` file shall consist of a single line, containing the 
+Google Analytics *Tracking ID* (format `UA-XXXXXX-X`) or *Measurement ID* 
+(format `G-XXXXXXX`).
+When configured correctly, upon starting a `CodeCompass_webserver`, the 
+*"Google Analytics monitoring enabled."* informational status message will 
+be displayed.
+
+**Note:** without explicitly creating the `ga.txt` file in the workspace 
+directory, the Google Analytics integration is disabled and no related code 
+is executed in the browser. **This is the default behaviour.**
 
 ### Usage example
 
 ```bash
 # Start the server listening on port 6251.
-CodeCompass_webserver \
-  -w ~/cc/workdir \
-  -p 6251
-
-# Or if SQLite database is used:
 CodeCompass_webserver \
   -w ~/cc/workdir \
   -p 6251

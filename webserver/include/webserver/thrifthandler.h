@@ -13,32 +13,6 @@
 
 #include "mongoose.h"
 
-/**
- * Returns the demangled name of the type described by the given type info.
- *
- * @param info_ a type info.
- * @return the pretty name of the type.
- */
-inline std::string getTypeName(const std::type_info& info_)
-{
-  int status = 0;
-  std::unique_ptr<char[], void (*)(void*)> result(
-    abi::__cxa_demangle(info_.name(), 0, 0, &status), std::free);
-
-  return result.get() ? std::string(result.get()) : "##error##";
-}
-
-/**
- * Returns the template argument's demangled name.
- *
- * @return the pretty name of the T type.
- */
-template <typename T>
-inline std::string getTypeName()
-{
-  return getTypeName(typeid(T));
-}
-
 namespace cc
 {
 namespace webserver
@@ -113,7 +87,7 @@ public:
 
     try
     {
-      std::string content = getContent(conn_);
+      std::string content{conn_->content, conn_->content + conn_->content_len};
 
       LOG(debug) << "Request content:\n" << content;
 
@@ -163,15 +137,10 @@ public:
   }
 
 private:
-  std::string getContent(mg_connection* conn_)
-  {
-    return std::string(conn_->content, conn_->content + conn_->content_len);
-  }
-
   LoggingProcessor _processor;
 };
 
-} // mongoose
+} // namespace webserver
 } // cc
 
 #endif // CC_WEBSERVER_THRIFTHANDLER_H

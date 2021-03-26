@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CodeCompass</title>
+
+    <meta charset="UTF-8">
+
+    <link rel="shortcut icon" href="images/favicon.ico" />
+
+    <!-- CSS -->
+
+    <link rel="stylesheet" href="style/login.css" />
+    <link rel="stylesheet" href="style/codecompass.css" />
+    <link rel="stylesheet" href="style/icons.css" />
+
+    <link rel="stylesheet" href="scripts/release/dojo/resources/dojo.css" />
+    <link rel="stylesheet" href="scripts/release/dijit/themes/claro/claro.css"/>
+
+    <!-- Third party libraries -->
+
+    <script type="text/javascript" src="scripts/node_modules/thrift/src/thrift.js"></script>
+    <script type="text/javascript" src="scripts/node_modules/jquery/dist/jquery.min.js"></script>
+    <script type="text/javascript" src="scripts/node_modules/jsplumb/dist/js/jsPlumb-2.2.1-min.js"></script>
+    <script type="text/javascript" src="scripts/node_modules/js-cookie/src/js.cookie.js"></script>
+
+    <script type="text/javascript">
+        if (Cookies.get('dojo-cache') === undefined) {
+            Cookies.set('dojo-cache', Date.now(), { expires: 7 });
+        }
+
+        var dojoConfig = {
+            baseUrl: 'scripts/release/',
+            tlmSiblingOfDojo: false,
+            defaultDuration: 1,
+            async: true,
+            cacheBust: Cookies.get('dojo-cache'),
+            packages: [
+                { name: 'dojo',  location: 'dojo'  },
+                { name: 'dijit', location: 'dijit' },
+                { name: 'dojox', location: 'dojox' },
+                { name: 'login', location: 'login' }
+            ]
+        };
+    </script>
+
+    <script type="text/javascript" src="scripts/release/dojo/dojo.js"></script>
+
+    <script type="text/javascript">
+        var commonModules = [
+            'scripts/codecompass/generated/authentication_types.js',
+            'scripts/codecompass/generated/AuthenticationService.js'
+        ];
+
+        require(commonModules, function() { // load common thrift modules
+            require(['scripts/release/login/bundle.js'], function() { // load codecompass bundle for login
+                require(['login/login'], function (login) {
+                    login();
+                });
+            });
+        });
+    </script>
+
+    <!-- Google Analytics (optionally loaded) -->
+    <script type="text/javascript" src="scripts/ga.js"></script>
+</head>
+<body class="claro">
+</body>
+</html>

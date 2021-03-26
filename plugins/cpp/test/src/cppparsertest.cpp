@@ -5,8 +5,16 @@
 
 #include <model/cppastnode.h>
 #include <model/cppastnode-odb.hxx>
+#include <model/cppenum.h>
+#include <model/cppenum-odb.hxx>
 #include <model/cppfunction.h>
 #include <model/cppfunction-odb.hxx>
+#include <model/cppnamespace.h>
+#include <model/cppnamespace-odb.hxx>
+#include <model/cpprecord.h>
+#include <model/cpprecord-odb.hxx>
+#include <model/cppvariable.h>
+#include <model/cppvariable-odb.hxx>
 #include <model/file.h>
 #include <model/file-odb.hxx>
 
@@ -18,6 +26,12 @@ extern const char* dbConnectionString;
 using namespace cc;
 
 using QCppAstNode = odb::query<model::CppAstNode>;
+using QCppFunction = odb::query<model::CppFunction>;
+using QCppEnum = odb::query<model::CppEnum>;
+using QCppEnumConstant = odb::query<model::CppEnumConstant>;
+using QCppNamespace = odb::query<model::CppNamespace>;
+using QCppRecord = odb::query<model::CppRecord>;
+using QCppVariable = odb::query<model::CppVariable>;
 using QFile = odb::query<model::File>;
 using RCppAstNode = odb::result<model::CppAstNode>;
 
@@ -73,11 +87,12 @@ TEST_F(CppParserTest, SimpleFunction)
     model::File simpleFile = _db->query_value<model::File>(
       QFile::filename == "function.cpp");
 
+    model::CppFunction simpleFunc = _db->query_value<model::CppFunction>(
+      QCppFunction::name == "singleFunc");
     model::CppAstNode simpleFuncAstNode = _db->query_value<model::CppAstNode>(
-      QCppAstNode::mangledName == "_Z10singleFuncv");
+      QCppAstNode::entityHash == simpleFunc.entityHash);
 
     EXPECT_EQ(simpleFuncAstNode.astValue, "void singleFunc()");
-    EXPECT_EQ(simpleFuncAstNode.mangledName, "_Z10singleFuncv");
     EXPECT_EQ(
       simpleFuncAstNode.symbolType,
       model::CppAstNode::SymbolType::Function);
@@ -103,8 +118,10 @@ TEST_F(CppParserTest, SimpleFunction)
 TEST_F(CppParserTest, FunctionDeclarationOnly)
 {
   _transaction([&, this]() {
+    model::CppFunction funcDecl = _db->query_value<model::CppFunction>(
+      QCppFunction::name == "funcDecl");
     model::CppAstNode funcDeclAstNode = _db->query_value<model::CppAstNode>(
-      QCppAstNode::mangledName == "_Z8funcDeclv");
+      QCppAstNode::entityHash == funcDecl.entityHash);
 
     EXPECT_EQ(
       funcDeclAstNode.symbolType,
@@ -118,8 +135,10 @@ TEST_F(CppParserTest, FunctionDeclarationOnly)
 TEST_F(CppParserTest, FunctionWithMultipleDeclarations)
 {
   _transaction([&, this]() {
+    model::CppFunction callee = _db->query_value<model::CppFunction>(
+      QCppFunction::name == "multiFunction");
     RCppAstNode multiFuncAstNode = _db->query<model::CppAstNode>(
-      QCppAstNode::mangledName == "_Z13multiFunctionv");
+      QCppAstNode::entityHash == callee.entityHash);
 
     int numDecl = 0, numDef = 0, numOther = 0;
     for (const model::CppAstNode& n : multiFuncAstNode)
@@ -139,8 +158,10 @@ TEST_F(CppParserTest, FunctionWithMultipleDeclarations)
 TEST_F(CppParserTest, FunctionCall)
 {
   _transaction([&, this]() {
+    model::CppFunction callee = _db->query_value<model::CppFunction>(
+      QCppFunction::name == "callee");
     RCppAstNode astNodes = _db->query<model::CppAstNode>(
-      QCppAstNode::mangledName == "_Z6calleecb");
+      QCppAstNode::entityHash == callee.entityHash);
 
     for (const model::CppAstNode& n : astNodes)
       switch (n.location.range.start.line)
@@ -159,7 +180,7 @@ TEST_F(CppParserTest, FunctionCall)
       }
 
     astNodes = _db->query<model::CppAstNode>(
-      QCppAstNode::astValue.like("%MyClass(%") &&
+      QCppAstNode::astValue == "MyClass::MyClass()" &&
       QCppAstNode::symbolType == model::CppAstNode::SymbolType::Function &&
       QCppAstNode::astType == model::CppAstNode::AstType::Usage);
 
@@ -168,35 +189,44 @@ TEST_F(CppParserTest, FunctionCall)
     int numDefault = 0, numMove = 0, numCopy = 0;
 
     for (const model::CppAstNode& n : astNodes)
-      if (n.mangledName == "_ZN7MyClassC1Ev") // Default constructor.
-      {
-        EXPECT_TRUE(
-          n.location.range.start.line == 10 || // Global variable.
-          n.location.range.start.line == 15 || // Local variable.
-          n.location.range.start.line == 20 || // Temporary object.
-          n.location.range.start.line == 34 || // Parent constructor.
-          n.location.range.start.line == 35 || // Temporary object.
-          n.location.range.start.line == 38 || // New object.
-          n.location.range.start.line == 42);  // New object.
-        ++numDefault;
-      }
-      else if (n.mangledName == "_ZN7MyClassC1EOS_") // Move constructor.
-      {
-        EXPECT_TRUE(
-          n.location.range.start.line == 20 || // Throwing an exception.
-          n.location.range.start.line == 25 || // Returning a value.
-          n.location.range.start.line == 35);  // Initializing a field.
-        ++numMove;
-      }
-      else if (n.mangledName == "_ZN7MyClassC1ERKS_") // Copy constructor.
-      {
-        EXPECT_TRUE(
-          n.location.range.start.line == 16 || // Local variable.
-          n.location.range.start.line == 17);  // Local variable.
-        ++numCopy;
-      }
-      else
-        EXPECT_TRUE(false);
+    {
+      EXPECT_TRUE(
+        n.location.range.start.line == 10 || // Global variable.
+        n.location.range.start.line == 15 || // Local variable.
+        n.location.range.start.line == 20 || // Temporary object.
+        n.location.range.start.line == 34 || // Parent constructor.
+        n.location.range.start.line == 35 || // Temporary object.
+        n.location.range.start.line == 38 || // New object.
+        n.location.range.start.line == 42);  // New object.
+      ++numDefault;
+    }
+
+    astNodes = _db->query<model::CppAstNode>(
+      QCppAstNode::astValue == "MyClass::MyClass(MyClass &&)" &&
+      QCppAstNode::symbolType == model::CppAstNode::SymbolType::Function &&
+      QCppAstNode::astType == model::CppAstNode::AstType::Usage);
+
+    for (const model::CppAstNode& n : astNodes)
+    {
+      EXPECT_TRUE(
+        n.location.range.start.line == 20 || // Throwing an exception.
+        n.location.range.start.line == 25 || // Returning a value.
+        n.location.range.start.line == 35);  // Initializing a field.
+      ++numMove;
+    }
+
+    astNodes = _db->query<model::CppAstNode>(
+      QCppAstNode::astValue == "MyClass::MyClass(const MyClass &)" &&
+      QCppAstNode::symbolType == model::CppAstNode::SymbolType::Function &&
+      QCppAstNode::astType == model::CppAstNode::AstType::Usage);
+
+    for (const model::CppAstNode& n : astNodes)
+    {
+      EXPECT_TRUE(
+        n.location.range.start.line == 16 || // Local variable.
+        n.location.range.start.line == 17);  // Local variable.
+      ++numCopy;
+    }
 
     EXPECT_EQ(numDefault, 7);
     EXPECT_EQ(numMove, 3);
@@ -208,13 +238,13 @@ TEST_F(CppParserTest, FunctionCall)
       QCppAstNode::astType == model::CppAstNode::AstType::Usage);
 
     for (const model::CppAstNode& n : astNodes)
-      if (n.mangledName == "_Znwm") // operator new()
+      if (n.astValue == "void * operator new(unsigned long)")
         EXPECT_EQ(n.location.range.start.line, 38);
-      else if (n.mangledName == "_Znam") // operator new[]()
+      else if (n.astValue == "void * operator new[](unsigned long)")
         EXPECT_EQ(n.location.range.start.line, 42);
-      else if (n.mangledName == "_ZdlPv") // operator delete()
+      else if (n.astValue == "void operator delete(void *)")
         EXPECT_EQ(n.location.range.start.line, 41);
-      else if (n.mangledName == "_ZdaPv") // operator delete[]()
+      else if (n.astValue == "void operator delete[](void *)")
         EXPECT_EQ(n.location.range.start.line, 43);
 
     astNodes = _db->query<model::CppAstNode>(
@@ -266,8 +296,10 @@ TEST_F(CppParserTest, FunctionCall)
 TEST_F(CppParserTest, Typedef)
 {
   _transaction([&, this]() {
+    model::CppEnum integer = _db->query_value<model::CppEnum>(
+      QCppEnum::name == "Integer");
     RCppAstNode astNodes = _db->query<model::CppAstNode>(
-      QCppAstNode::mangledName == "Integer");
+      QCppAstNode::entityHash == integer.entityHash);
 
     for (const model::CppAstNode& n : astNodes)
     {
@@ -312,23 +344,27 @@ TEST_F(CppParserTest, Typedef)
 TEST_F(CppParserTest, Record)
 {
   _transaction([&, this] {
+    model::CppRecord myClass = _db->query_value<model::CppRecord>(
+      QCppRecord::name == "MyClass");
     RCppAstNode astNodes = _db->query<model::CppAstNode>(
-      QCppAstNode::mangledName.like("%MyClass%"));
+      QCppAstNode::entityHash == myClass.entityHash);
 
     for (const model::CppAstNode& n : astNodes)
     {
-      if (n.symbolType != model::CppAstNode::SymbolType::Type)
-        continue;
+      EXPECT_EQ(n.symbolType, model::CppAstNode::SymbolType::Type);
 
       switch (n.location.range.start.line)
       {
         case -1: 
           EXPECT_TRUE(
-            // Compiler generated copy and move constructor parameter.
+            // TODO: investigate the type of this. It is possibly the parameter
+            // of a compiler generated copy constructor or assignment operator.
+            // ParameterTypeLoc and ReturnTypeLoc are both listed here,
+            // however, only one of them is found. Earlier when we generated
+            // mangled names manually, the function parameter was stored, now
+            // with USRs we have the return type.
             n.astType == model::CppAstNode::AstType::ParameterTypeLoc ||
-            // Compiler generated assignment operator return value.
-            // TODO: We lose the information that it is a return type loc.
-            //n.astType == model::CppAstNode::AstType::ReturnTypeLoc
+            n.astType == model::CppAstNode::AstType::ReturnTypeLoc ||
             n.astType == model::CppAstNode::AstType::TypeLocation);
           break;
 
@@ -414,13 +450,14 @@ TEST_F(CppParserTest, Record)
 TEST_F(CppParserTest, Enum)
 {
   _transaction([&, this] {
+    model::CppEnum enumeration = _db->query_value<model::CppEnum>(
+      QCppEnum::name == "Enumeration");
     RCppAstNode astNodes = _db->query<model::CppAstNode>(
-      QCppAstNode::mangledName.like("%Enumeration%"));
+      QCppAstNode::entityHash == enumeration.entityHash);
 
     for (const model::CppAstNode& n : astNodes)
     {
-      if (n.symbolType != model::CppAstNode::SymbolType::Enum)
-        continue;
+      EXPECT_EQ(n.symbolType, model::CppAstNode::SymbolType::Enum);
 
       switch (n.location.range.start.line)
       {
@@ -465,13 +502,14 @@ TEST_F(CppParserTest, Enum)
       }
     }
 
+    model::CppEnumConstant first = _db->query_value<model::CppEnumConstant>(
+      QCppEnumConstant::name == "First");
     astNodes = _db->query<model::CppAstNode>(
-      QCppAstNode::mangledName.like("%First%"));
+      QCppAstNode::entityHash == first.entityHash);
 
     for (const model::CppAstNode& n : astNodes)
     {
-      if (n.symbolType != model::CppAstNode::SymbolType::EnumConstant)
-        continue;
+      EXPECT_EQ(n.symbolType, model::CppAstNode::SymbolType::EnumConstant);
 
       switch (n.location.range.start.line)
       {
@@ -489,8 +527,35 @@ TEST_F(CppParserTest, Enum)
       }
     }
 
+    model::CppFunction fieldFunction = _db->query_value<model::CppFunction>(
+      QCppFunction::name == "fieldFunction");
     astNodes = _db->query<model::CppAstNode>(
-      QCppAstNode::mangledName.like("%field%"));
+      QCppAstNode::entityHash == fieldFunction.entityHash);
+
+    for (const model::CppAstNode& n : astNodes)
+    {
+      switch (n.location.range.start.line)
+      {
+        case 33:
+          EXPECT_EQ(n.astType, model::CppAstNode::AstType::Definition);
+          EXPECT_EQ(n.symbolType, model::CppAstNode::SymbolType::FunctionPtr);
+          break;
+
+        case 36:
+          EXPECT_EQ(n.astType, model::CppAstNode::AstType::Write);
+          EXPECT_EQ(n.symbolType, model::CppAstNode::SymbolType::FunctionPtr);
+          break;
+
+        default:
+          EXPECT_TRUE(false);
+          break;
+      }
+    }
+
+    model::CppVariable fieldVariable = _db->query_value<model::CppVariable>(
+      QCppVariable::name == "fieldVariable");
+    astNodes = _db->query<model::CppAstNode>(
+      QCppAstNode::entityHash == fieldVariable.entityHash);
 
     for (const model::CppAstNode& n : astNodes)
     {
@@ -501,19 +566,9 @@ TEST_F(CppParserTest, Enum)
           EXPECT_EQ(n.symbolType, model::CppAstNode::SymbolType::Variable);
           break;
 
-        case 33:
-          EXPECT_EQ(n.astType, model::CppAstNode::AstType::Definition);
-          EXPECT_EQ(n.symbolType, model::CppAstNode::SymbolType::FunctionPtr);
-          break;
-
         case 35:
           EXPECT_EQ(n.astType, model::CppAstNode::AstType::Write);
           EXPECT_EQ(n.symbolType, model::CppAstNode::SymbolType::Variable);
-          break;
-
-        case 36:
-          EXPECT_EQ(n.astType, model::CppAstNode::AstType::Write);
-          EXPECT_EQ(n.symbolType, model::CppAstNode::SymbolType::FunctionPtr);
           break;
 
         default:
@@ -527,25 +582,17 @@ TEST_F(CppParserTest, Enum)
 TEST_F(CppParserTest, Variable)
 {
   _transaction([&, this] {
+    model::CppVariable variableDefinition
+      = _db->query_value<model::CppVariable>(
+        QCppVariable::name == "variableDefinition");
     RCppAstNode astNodes = _db->query<model::CppAstNode>(
-      QCppAstNode::mangledName.like("%variable%"));
+      QCppAstNode::entityHash == variableDefinition.entityHash);
 
     for (const model::CppAstNode& n : astNodes)
       switch (n.location.range.start.line)
       {
         case 8:
-        case 11:
           EXPECT_EQ(n.symbolType, model::CppAstNode::SymbolType::Variable);
-          EXPECT_EQ(n.astType, model::CppAstNode::AstType::Definition);
-          break;
-
-        case 9:
-          EXPECT_EQ(n.symbolType, model::CppAstNode::SymbolType::Variable);
-          EXPECT_EQ(n.astType, model::CppAstNode::AstType::Declaration);
-          break;
-
-        case 10:
-          EXPECT_EQ(n.symbolType, model::CppAstNode::SymbolType::FunctionPtr);
           EXPECT_EQ(n.astType, model::CppAstNode::AstType::Definition);
           break;
 
@@ -564,8 +611,30 @@ TEST_F(CppParserTest, Variable)
           break;
       }
 
+    model::CppVariable variableDeclaration
+      = _db->query_value<model::CppVariable>(
+        QCppVariable::name == "variableDeclaration");
+    model::CppAstNode astNode = _db->query_value<model::CppAstNode>(
+      QCppAstNode::entityHash == variableDeclaration.entityHash);
+
+    EXPECT_EQ(astNode.location.range.start.line, 9);
+    EXPECT_EQ(astNode.symbolType, model::CppAstNode::SymbolType::Variable);
+    EXPECT_EQ(astNode.astType, model::CppAstNode::AstType::Declaration);
+
+    model::CppVariable variableFunctionPointer
+      = _db->query_value<model::CppVariable>(
+        QCppVariable::name == "variableFunctionPointer");
+    astNode = _db->query_value<model::CppAstNode>(
+      QCppAstNode::entityHash == variableFunctionPointer.entityHash);
+
+    EXPECT_EQ(astNode.location.range.start.line, 10);
+    EXPECT_EQ(astNode.symbolType, model::CppAstNode::SymbolType::FunctionPtr);
+    EXPECT_EQ(astNode.astType, model::CppAstNode::AstType::Definition);
+
+    model::CppVariable memberVariable = _db->query_value<model::CppVariable>(
+      QCppVariable::name == "memberVariable");
     astNodes = _db->query<model::CppAstNode>(
-      QCppAstNode::astValue.like("%memberVariable%"));
+      QCppAstNode::entityHash == memberVariable.entityHash);
 
     for (const model::CppAstNode& n : astNodes)
       switch (n.location.range.start.line)
@@ -593,25 +662,22 @@ TEST_F(CppParserTest, Variable)
 TEST_F(CppParserTest, Namespace)
 {
   _transaction([&, this] {
-    RCppAstNode astNodes = _db->query<model::CppAstNode>(
-      QCppAstNode::mangledName.like("%MyNamespace%"));
+    model::CppNamespace myNamespace1 = _db->query_value<model::CppNamespace>(
+      QCppNamespace::name == "MyNamespace1");
+    model::CppAstNode astNode = _db->query_value<model::CppAstNode>(
+      QCppAstNode::entityHash == myNamespace1.entityHash);
 
-    for (const model::CppAstNode& n : astNodes)
-    {
-      if (n.symbolType != model::CppAstNode::SymbolType::Namespace)
-        continue;
+    EXPECT_EQ(astNode.symbolType, model::CppAstNode::SymbolType::Namespace);
+    EXPECT_EQ(astNode.location.range.start.line, 1);
+    EXPECT_EQ(astNode.astType, model::CppAstNode::AstType::Definition);
 
-      switch (n.location.range.start.line)
-      {
-        case 1:
-        case 3:
-          EXPECT_EQ(n.astType, model::CppAstNode::AstType::Definition);
-          break;
+    model::CppNamespace myNamespace2 = _db->query_value<model::CppNamespace>(
+      QCppNamespace::name == "MyNamespace2");
+    astNode = _db->query_value<model::CppAstNode>(
+      QCppAstNode::entityHash == myNamespace2.entityHash);
 
-        default:
-          EXPECT_TRUE(false);
-          break;
-      }
-    }
+    EXPECT_EQ(astNode.symbolType, model::CppAstNode::SymbolType::Namespace);
+    EXPECT_EQ(astNode.location.range.start.line, 3);
+    EXPECT_EQ(astNode.astType, model::CppAstNode::AstType::Definition);
   });
 }

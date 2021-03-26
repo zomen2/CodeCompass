@@ -45,6 +45,7 @@ function(add_odb_library _name)
   target_compile_options(${_name} PUBLIC -Wno-unknown-pragmas -fPIC)
   target_link_libraries(${_name} ${ODB_LIBRARIES})
   target_include_directories(${_name} PUBLIC
+    ${ODB_INCLUDE_DIRS}
     ${CMAKE_SOURCE_DIR}/util/include
     ${CMAKE_SOURCE_DIR}/model/include
     ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -98,20 +99,6 @@ function(install_webplugin _dir)
   set_property(GLOBAL APPEND PROPERTY USERGUIDES "${_userguides}")
 endfunction(install_webplugin)
 
-# Finds the absolute paths for the given Boost libraries
-# Use variable arguments for the Boost libraries to link
-function(find_boost_libraries)
-  foreach(_lib ${ARGV})
-    foreach(_path ${Boost_LIBRARIES})
-      if(_path MATCHES ".*boost_${_lib}\.so$")
-        list(APPEND LIBS ${_path})
-      endif(_path MATCHES ".*boost_${_lib}\.so$")
-    endforeach(_path)
-  endforeach(_lib)
-
-  set(Boost_LINK_LIBRARIES ${LIBS} PARENT_SCOPE)
-endfunction(find_boost_libraries)
-
 # Prints a coloured, and optionally bold message to the console.
 # _colour should be some ANSI colour name, like "blue" or "magenta".
 function(fancy_message _str _colour _isBold)
@@ -130,3 +117,11 @@ function(fancy_message _str _colour _isBold)
     ${CMAKE_COMMAND} -E env CLICOLOR_FORCE=1
     ${CMAKE_COMMAND} -E cmake_echo_color ${COLOUR_TAG} ${BOLD_TAG} ${_str})
 endfunction(fancy_message)
+
+# Joins a list of elements with a given glue string.
+# See: https://stackoverflow.com/questions/7172670/best-shortest-way-to-join-a-list-in-cmake
+function(join _values _glue _output)
+  string (REGEX REPLACE "([^\\]|^);" "\\1${_glue}" _tmpStr "${_values}")
+  string (REGEX REPLACE "[\\](.)" "\\1" _tmpStr "${_tmpStr}") #fixes escaping
+  set (${_output} "${_tmpStr}" PARENT_SCOPE)
+endfunction(join)

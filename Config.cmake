@@ -1,3 +1,12 @@
+# Set a default build type if none was specified
+set(DEFAULT_BUILD_TYPE "RelWithDebInfo")
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  message(STATUS "Setting build type to '${DEFAULT_BUILD_TYPE}' as none was specified.")
+  set(CMAKE_BUILD_TYPE "${DEFAULT_BUILD_TYPE}" CACHE STRING "Choose the type of build." FORCE)
+  # Set the possible values of build type for cmake-gui
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+endif()
+
 # Installation directory for libraries
 set(INSTALL_LIB_DIR_NAME "lib")
 set(INSTALL_LIB_DIR "${CMAKE_INSTALL_PREFIX}/${INSTALL_LIB_DIR_NAME}")
@@ -9,6 +18,10 @@ set(INSTALL_PARSER_DIR "${INSTALL_LIB_DIR}/${INSTALL_PARSER_DIR_NAME}")
 # Installation directory for service libraries
 set(INSTALL_SERVICE_DIR_NAME "serviceplugin")
 set(INSTALL_SERVICE_DIR "${INSTALL_LIB_DIR}/${INSTALL_SERVICE_DIR_NAME}")
+
+# Installation directory for authentication libraries
+set(INSTALL_AUTH_DIR_NAME "authplugin")
+set(INSTALL_AUTH_DIR "${INSTALL_LIB_DIR}/${INSTALL_AUTH_DIR_NAME}")
 
 # Installation directory of web GUI
 set(INSTALL_WEBROOT_DIR "${CMAKE_INSTALL_PREFIX}/share/codecompass/webgui")
@@ -51,7 +64,9 @@ string(CONCAT CMAKE_INSTALL_RPATH
   ";../${INSTALL_LIB_DIR_NAME}/${INSTALL_PARSER_DIR_NAME}"
   ";$ORIGIN/../${INSTALL_LIB_DIR_NAME}/${INSTALL_PARSER_DIR_NAME}"
   ";../${INSTALL_LIB_DIR_NAME}/${INSTALL_SERVICE_DIR_NAME}"
-  ";$ORIGIN/../${INSTALL_LIB_DIR_NAME}/${INSTALL_SERVICE_DIR_NAME}")
+  ";$ORIGIN/../${INSTALL_LIB_DIR_NAME}/${INSTALL_SERVICE_DIR_NAME}"
+  ";../${INSTALL_LIB_DIR_NAME}/${INSTALL_AUTH_DIR_NAME}"
+  ";$ORIGIN/../${INSTALL_LIB_DIR_NAME}/${INSTALL_AUTH_DIR_NAME}")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 # Odb commands
@@ -68,9 +83,13 @@ set(ODBFLAGS
   --include-with-brackets
   --default-pointer "std::shared_ptr")
 
+# Set CXX standard
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 # Set CXX flags
 set(CMAKE_CXX_FLAGS "-W -Wall -Wextra -pedantic\
-  -std=c++14 \
   -DDATABASE_${DATABASE_U} \
   -DBOOST_LOG_DYN_LINK")
 
@@ -81,11 +100,13 @@ endif()
 
 set(CMAKE_LINKER "${CODECOMPASS_LINKER}")
 
-
-
 # Cmake module directory (FindOdb, FindThrift etc.)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}")
 
-# Debug and Release version flags
-set(CMAKE_CXX_FLAGS_DEBUG "-ggdb3 -O0")
-set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O3")
+# Set build type specific flags here. Default values are:
+# CMAKE_CXX_FLAGS_DEBUG:          -g
+# CMAKE_CXX_FLAGS_RELEASE:        -O3 -DNDEBUG
+# CMAKE_CXX_FLAGS_RELWITHDEBINFO: -O2 -g -DNDEBUG
+# CMAKE_CXX_FLAGS_MINSIZEREL:     -Os -DNDEBUG
+set(CMAKE_CXX_FLAGS_DEBUG "-O0 -ggdb3")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -ggdb3 -DNDEBUG")
