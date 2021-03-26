@@ -5,11 +5,13 @@ set -e
 function usage() {
     cat <<EOF
 ${0} [-h]
-${0} [-s <source directory>] [-o <output directory>] [-t]
+${0} [-i <image>] [-s <source directory>] [-o <output directory>] [-t]
   -h  Print this usage information. Optional.
   -d  Database type. [sqlite | pgsql] Optional. If not specified then
       CC_DATABASE_TYPE will be used. If neither this option nor environment
       variable are specified then sqlite will be used as default.
+  -i  Image name of the container that this script will be run. If not specified
+      then "compass-devel" used as default.
   -o  Directory of generated output artifacts. If not specified then
       CC_BUILD environment variable will be used. Any of them
       is mandatory.
@@ -21,6 +23,7 @@ ${0} [-s <source directory>] [-o <output directory>] [-t]
       It can be: Debug; Release; RelWithDebInfo; MinSizeRel
       If not specified then CC_BUILD_TYPE environment variable will
       be used. If not defined then Release will be used.
+  -v  Let the build verbose.
 EOF
 }
 
@@ -28,7 +31,9 @@ cc_source_dir="${CC_SOURCE}"
 cc_output_dir="${CC_BUILD}"
 cc_build_type="${CC_BUILD_TYPE}"
 cc_database_type="${CC_DATABASE_TYPE}"
-while getopts "hd:s:o:t:" option; do
+image_name="compass-devel"
+verbose_build="OFF"
+while getopts "hd:i:s:o:t:v" option; do
     case ${option} in
         h)
             usage
@@ -36,6 +41,9 @@ while getopts "hd:s:o:t:" option; do
             ;;
         d)
             cc_database_type="${OPTARG}"
+            ;;
+        i)
+            image_name="${OPTARG}"
             ;;
         o)
             cc_output_dir="${OPTARG}"
@@ -46,6 +54,9 @@ while getopts "hd:s:o:t:" option; do
         t)
             cc_build_type="${OPTARG}"
             ;;
+        v)
+            verbose_build="ON"
+            ;;            
         *)
             usage >&2
             exit 1
@@ -102,7 +113,7 @@ developer_group="$(id --group)"
 
 if [[ "${developer_id}" -eq 0 ]] || [[ "${developer_group}" -eq 0 ]]; then
     echo "'${0}' should not run as root." >&2
-    exit 2
+    exit 6
 fi
 
 mkdir --parents "${cc_output_dir}"
@@ -113,8 +124,9 @@ docker_command=("docker" "run" "--rm"                                          \
   "--user=${developer_id}:${developer_group}"                                  \
   "--mount" "type=bind,source=${cc_source_dir},target=${cc_source_mounted}"    \
   "--mount" "type=bind,source=${cc_output_dir},target=${cc_output_mounted}"    \
-  "compass-devel" "/usr/local/bin/configurecompass.sh" "${cc_source_mounted}"  \
-  "${cc_output_mounted}" "${cc_build_type}" "${cc_database_type}")
+  "${image_name}" "/usr/local/bin/configurecompass.sh" "${cc_source_mounted}"  \
+  "${cc_output_mounted}" "${cc_build_type}" "${cc_database_type}"              \
+  "${verbose_build}")
   
 if [[ "$(id -nG "${USER}")" == *"docker"* ]] || [[ -n "${DOCKER_HOST}" ]]; then
     "${docker_command[@]}"

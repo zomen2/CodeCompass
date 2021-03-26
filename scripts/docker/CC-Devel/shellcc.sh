@@ -5,18 +5,18 @@ set -e
 function usage() {
     cat <<EOF
 ${0} [-h]
-${0} [-s <source directory>] [-o <output directory>] [-u] [-i]
+${0} [-i <image>] [-o <output directory>] [-s <source directory>] [-u] 
 
   -h  Print this usage information. Optional.
-  -i  Image neme of the container that this script will be run. If not specified
+  -i  Image name of the container that this script will be run. If not specified
       then "compass-devel" used as default.
+  -o  Directory of generated output artifacts. If not specified then
+      CC_BUILD environment variable will be used. Any of them
+      is mandatory.
   -s  Directory of CodeCompass source. If not specified this option
       CC_SOURCE environment variable will be used. If any of them not specified,
       this script uses the root directory of this git repository as Compass
       source.
-  -o  Directory of generated output artifacts. If not specified then
-      CC_BUILD environment variable will be used. Any of them
-      is mandatory.
   -u  Run container as the same user as caller. Otherwise as root.
 EOF
 }

@@ -5,8 +5,10 @@ set -e
 function usage() {
     cat <<EOF
 ${0} [-h]
-${0} [-s <source directory>] [-o <output directory>]
+${0} [-i <image>] [-s <source directory>] [-o <output directory>]
   -h  Print this usage information. Optional.
+  -i  Image name of the container that this script will be run. If not specified
+      then "compass-devel" used as default.
   -s  Directory of CodeCompass source. If not specified this option
       CC_SOURCE environment variable will be used. If any of them not specified,
       this script uses the root directory of this git repository as Compass
@@ -19,17 +21,21 @@ EOF
 
 cc_source_dir="${CC_SOURCE}"
 cc_output_dir="${CC_BUILD}"
-while getopts "hs:o:" option; do
+image_name="compass-devel"
+while getopts "hi:o:s:" option; do
     case ${option} in
         h)
             usage
             exit 0
             ;;
-        s)
-            cc_source_dir="${OPTARG}"
+        i)
+            image_name="${OPTARG}"
             ;;
         o)
             cc_output_dir="${OPTARG}"
+            ;;
+        s)
+            cc_source_dir="${OPTARG}"
             ;;
         *)
             usage >&2
@@ -65,12 +71,11 @@ mkdir --parents "${cc_output_dir}"
 cc_source_mounted="/mnt/cc_source"
 cc_output_mounted="/mnt/cc_output"
 
-docker_command=("docker" "run" "--rm"                                       \
-  "--user=${developer_id}:${developer_group}"                               \
-  "--mount" "type=bind,source=${cc_source_dir},target=${cc_source_mounted}" \
-  "--mount" "type=bind,source=${cc_output_dir},target=${cc_output_mounted}" \
-  "compass-devel" "/usr/local/bin/buildcompass.sh" "${cc_source_mounted}"   \
-  "${cc_output_mounted}")
+docker_command=("docker" "run" "--rm"                                          \
+  "--user=${developer_id}:${developer_group}"                                  \
+  "--mount" "type=bind,source=${cc_source_dir},target=${cc_source_mounted}"    \
+  "--mount" "type=bind,source=${cc_output_dir},target=${cc_output_mounted}"    \
+  "${image_name}" "/usr/local/bin/buildcompass.sh" "${cc_output_mounted}")
 
 if [[ "$(id -nG "${USER}")" == *"docker"* ]] || [[ -n "${DOCKER_HOST}" ]]; then
     "${docker_command[@]}"
