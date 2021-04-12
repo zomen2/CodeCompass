@@ -49,33 +49,51 @@ if [[ -z "${cc_source_dir}" ]]; then
     usage >&2
     exit 2
 fi
+declare cc_source_dir
 cc_source_dir=$(readlink --canonicalize-existing --verbose "${cc_source_dir}")
+readonly cc_source_dir
 
 if [[ -z "${cc_output_dir}" ]]; then
     echo "Output directory of build should be defined." >&2
     usage >&2
     exit 3
 fi
+declare cc_output_dir
 cc_output_dir=$(readlink --canonicalize-existing --verbose                     \
     "${cc_output_dir}")
+readonly cc_output_dir
 
+declare developer_id
 developer_id="$(id --user)"
+readonly developer_id
+declare developer_group
 developer_group="$(id --group)"
+readonly developer_group
 
 if [[ "${developer_id}" -eq 0 ]] || [[ "${developer_group}" -eq 0 ]]; then
     echo "'${0}' should not run as root." >&2
     exit 4
 fi
 
+declare script_dir
+script_dir=$(readlink --canonicalize-existing --verbose                       \
+    "$(dirname "$(command -v "${0}")")")
 mkdir --parents "${cc_output_dir}"
-cc_source_mounted="/mnt/cc_source"
-cc_output_mounted="/mnt/cc_output"
-
+declare -r cc_source_mounted="/mnt/cc_source"
+declare -r cc_output_mounted="/mnt/cc_output"
+declare -r cc_peer_target_dir="/opt/cc/bin"
+declare cc_peer_source_dir
+cc_peer_source_dir=$(readlink --canonicalize-existing                         \
+    --verbose "${script_dir}/../peer")
+readonly cc_peer_source_dir
 docker_command=("docker" "run" "--rm"                                          \
   "--user=${developer_id}:${developer_group}"                                  \
   "--mount" "type=bind,source=${cc_source_dir},target=${cc_source_mounted}"    \
   "--mount" "type=bind,source=${cc_output_dir},target=${cc_output_mounted}"    \
-  "${image_name}" "/usr/local/bin/buildcompass.sh" "${cc_output_mounted}")
+  "--mount"                                                                    \
+  "type=bind,source=${cc_peer_source_dir},target=${cc_peer_target_dir}"        \
+  "${image_name}" "${cc_peer_target_dir}/buildcompass.sh"                      \
+  "${cc_output_mounted}")
 
 if [[ "$(id -nG "${USER}")" == *"docker"* ]] || [[ -n "${DOCKER_HOST}" ]]; then
     "${docker_command[@]}"

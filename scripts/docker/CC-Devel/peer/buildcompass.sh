@@ -23,7 +23,6 @@ if [[ -n "${2}" ]]; then
 fi
 
 CODE_COMPASS_OUTPUT_DIR=$(readlink --canonicalize-existing --verbose "${1}")
-
 CODE_COMPASS_BUILD_DIR="${CODE_COMPASS_OUTPUT_DIR}/build"
 
 SCRIPT_DIR=$(readlink --canonicalize-existing --verbose                        \

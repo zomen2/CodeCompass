@@ -21,10 +21,10 @@ ${0} [-i <image>] [-o <output directory>] [-s <source directory>] [-u]
 EOF
 }
 
-cc_source_dir="${CC_SOURCE}"
-cc_output_dir="${CC_BUILD}"
-run_as_root="true"
-image_name="compass-devel"
+declare cc_source_dir="${CC_SOURCE}"
+declare cc_output_dir="${CC_BUILD}"
+declare run_as_root="true"
+declare image_name="compass-devel"
 while getopts "hs:o:ui:" OPTION; do
     case ${OPTION} in
         h)
@@ -42,7 +42,6 @@ while getopts "hs:o:ui:" OPTION; do
             ;;
         u)
             run_as_root="false"
-
             ;;
         *)
             usage >&2
@@ -50,13 +49,16 @@ while getopts "hs:o:ui:" OPTION; do
             ;;
     esac
 done
+readonly run_as_root
+readonly image_name
 
+declare script_dir=$(readlink --canonicalize-existing --verbose                \
+    "$(dirname "$(command -v "${0}")")")
+readonly script_dir
 if [[ -z "${cc_source_dir}" ]]; then
-    script_dir=$(readlink --canonicalize-existing --verbose                    \
-        "$(dirname "$(command -v "${0}")")")
     cc_source_dir=$(
         set +e
-        cd ${script_dir}
+        cd "${script_dir}"
         git rev-parse --show-toplevel
     )
 
@@ -67,6 +69,7 @@ if [[ -z "${cc_source_dir}" ]]; then
     fi
 fi
 cc_source_dir=$(readlink --canonicalize-existing --verbose "${cc_source_dir}")
+readonly cc_source_dir
 
 if [[ -z "${cc_output_dir}" ]]; then
     echo "Output directory of build should be defined." >&2
@@ -74,9 +77,10 @@ if [[ -z "${cc_output_dir}" ]]; then
     exit 3
 fi
 cc_output_dir=$(readlink --canonicalize-existing --verbose "${cc_output_dir}")
+readonly cc_output_dir
 
-developer_id="$(id --user)"
-developer_group="$(id --group)"
+declare -r developer_id="$(id --user)"
+declare -r developer_group="$(id --group)"
 
 if [[ "${developer_id}" -eq 0 ]] || [[ "${developer_group}" -eq 0 ]]; then
     echo "'${0}' should not run as root." >&2
@@ -95,21 +99,29 @@ if [[ ! -d "${cc_output_dir}" ]]; then
     exit 6
 fi
 
-cc_source_mounted="/mnt/cc_source"
-cc_output_mounted="/mnt/cc_output"
+declare -r cc_source_mounted="/mnt/cc_source"
+declare -r cc_output_mounted="/mnt/cc_output"
 
-docker_command=("docker" "run" "--rm" "--interactive" "--tty")
+declare docker_command=("docker" "run" "--rm" "--interactive" "--tty")
 
 if [[ "${run_as_root}" == "false" ]]; then
     docker_command+=("--user=${developer_id}:${developer_group}")
 fi
 
+declare -r cc_peer_target_dir="/opt/cc/bin"
+declare cc_peer_source_dir
+cc_peer_source_dir=$(readlink --canonicalize-existing                         \
+    --verbose "${script_dir}/../peer")
+readonly cc_peer_source_dir
 docker_command+=(
   "--mount" "type=bind,source=${cc_source_dir},target=${cc_source_mounted}"    \
   "--mount" "type=bind,source=${cc_output_dir},target=${cc_output_mounted}"    \
+  "--mount"                                                                    \
+  "type=bind,source=${cc_peer_source_dir},target=${cc_peer_target_dir}"        \
   "${image_name}" "/bin/bash")
+readonly docker_command
 
-if [[ "$(id -nG ${USER})" == *"docker"* ]] || [[ ! -z ${DOCKER_HOST} ]]; then
+if [[ "$(id -nG ${USER})" == *"docker"* ]] || [[ ! -z "${DOCKER_HOST}" ]]; then
     "${docker_command[@]}"
 else
     sudo "${docker_command[@]}"

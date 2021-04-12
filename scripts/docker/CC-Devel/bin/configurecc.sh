@@ -5,7 +5,7 @@ set -e
 function usage() {
     cat <<EOF
 ${0} [-h]
-${0} [-i <image>] [-s <source directory>] [-o <output directory>] [-t]
+${0} [-i <image>] [-d <db type>] [-o <output directory>] [-s <source directory>] [-t <build type>]
   -h  Print this usage information. Optional.
   -d  Database type. [sqlite | pgsql] Optional. If not specified then
       CC_DATABASE_TYPE will be used. If neither this option nor environment
@@ -63,23 +63,34 @@ while getopts "hd:i:s:o:t:v" option; do
             ;;
     esac
 done
+readonly verbose_build
 
 if [[ -z "${cc_build_type}" ]]; then
     cc_build_type="Release"
 fi
+readonly cc_build_type
 
-if [[ "${cc_build_type}" != "Debug" ]] \
-   && [[ "${cc_build_type}" != "Release" ]] \
-   && [[ "${cc_build_type}" != "RelWithDebInfo" ]] \
+if [[ "${cc_build_type}" != "Debug" ]]                                         \
+   && [[ "${cc_build_type}" != "Release" ]]                                    \
+   && [[ "${cc_build_type}" != "RelWithDebInfo" ]]                             \
    && [[ "${cc_build_type}" != "MinSizeRel" ]]; then
     echo "Unknown build type: '${cc_build_type}'." >&2
-    usage
+    usage >&2
     exit 2
 fi
 
+if [[ "${cc_database_type}" != "sqlite" ]]                                     \
+   && [[ "${cc_database_type}" != "pgsql" ]]; then
+    echo "Unknown database type: '${cc_database_type}'." >&2
+    usage >&2
+    exit 3
+fi
+
+declare script_dir
+script_dir=$(readlink --canonicalize-existing --verbose                       \
+    "$(dirname "$(command -v "${0}")")")
+readonly script_dir
 if [[ -z "${cc_source_dir}" ]]; then
-    script_dir=$(readlink ---canonicalize-existing --verbose                   \
-        "$(dirname "$(command -v "${0}")")")
     cc_source_dir=$(
         set +e
         cd "${script_dir}"
@@ -89,42 +100,48 @@ if [[ -z "${cc_source_dir}" ]]; then
     if [[ ! $? ]]; then
         echo "CodeCompass source directory should be defined." >&2
         usage >&2
-        exit 3
+        exit 4
     fi
 fi
 cc_source_dir=$(readlink --canonicalize-existing --verbose "${cc_source_dir}")
+readonly cc_source_dir
 
 if [[ -z "${cc_output_dir}" ]]; then
     echo "Output directory of build should be defined." >&2
-    usage
-    exit 4
-fi
-cc_output_dir=$(readlink --canonicalize-existing --verbose "${cc_output_dir}")
-
-if [[ "${cc_database_type}" != "sqlite" ]]                                     \
-   && [[ "${cc_database_type}" != "pgsql" ]]; then
-    echo "Unknown database type: '${cc_database_type}'." >&2
-    usage
+    usage >&2
     exit 5
 fi
+mkdir --parents "${cc_output_dir}"
+cc_output_dir=$(readlink --canonicalize-existing --verbose "${cc_output_dir}")
+readonly cc_output_dir
 
+declare developer_id
 developer_id="$(id --user)"
+readonly developer_id
+declare developer_group
 developer_group="$(id --group)"
+readonly developer_group
 
 if [[ "${developer_id}" -eq 0 ]] || [[ "${developer_group}" -eq 0 ]]; then
     echo "'${0}' should not run as root." >&2
     exit 6
 fi
 
-mkdir --parents "${cc_output_dir}"
-cc_source_mounted="/mnt/cc_source"
-cc_output_mounted="/mnt/cc_output"
-
+declare -r cc_source_mounted="/mnt/cc_source"
+declare -r cc_output_mounted="/mnt/cc_output"
+declare -r cc_peer_target_dir="/opt/cc/bin"
+declare cc_peer_source_dir
+cc_peer_source_dir=$(readlink --canonicalize-existing                         \
+    --verbose "${script_dir}/../peer")
+readonly cc_peer_source_dir
 docker_command=("docker" "run" "--rm"                                          \
   "--user=${developer_id}:${developer_group}"                                  \
   "--mount" "type=bind,source=${cc_source_dir},target=${cc_source_mounted}"    \
   "--mount" "type=bind,source=${cc_output_dir},target=${cc_output_mounted}"    \
-  "${image_name}" "/usr/local/bin/configurecompass.sh" "${cc_source_mounted}"  \
+  "--mount"                                                                    \
+  "type=bind,source=${cc_peer_source_dir},target=${cc_peer_target_dir}"        \
+  "${image_name}" "${cc_peer_target_dir}/configurecompass.sh"                  \
+  "${cc_source_mounted}"                                                       \
   "${cc_output_mounted}" "${cc_build_type}" "${cc_database_type}"              \
   "${verbose_build}")
   

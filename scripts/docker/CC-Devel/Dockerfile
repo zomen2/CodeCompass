@@ -23,30 +23,21 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install --yes                       \
     wget
 
 WORKDIR /root
-COPY ./bin ./bin
+COPY ./dbuild ./build
 RUN chmod u+x \
-    ./bin/install_gtest.sh                                                     \
-    ./bin/install_dbaccess.sh                                                  \
-    ./bin/install_thrift.sh                                                    \
-    ./bin/install_dependencies.sh
+    ./build/install_gtest.sh                                                   \
+    ./build/install_dbaccess.sh                                                \
+    ./build/install_thrift.sh                                                  \
+    ./build/uagen.sh                                                           \
+    ./build/install_dependencies.sh
 
-RUN ./bin/install_dependencies.sh
+RUN ./build/install_dependencies.sh
 
-# TODO: Add clang alternatives
+#TODO clang version? Maybe part of install dep?
+RUN ./build/uagen.sh -v 10 -p 50 && ./build/reg-clang.sh
 
-RUN ./bin/install_gtest.sh                                                     \
-  && ./bin/install_dbaccess.sh                                                 \
-  && ./bin/install_thrift.sh -t "0.13.0"
-
-RUN mv \
-    /root/bin/fetchcompass.sh                                                  \
-    /root/bin/configurecompass.sh                                              \
-    /root/bin/buildcompass.sh                                                  \
-    /root/bin/builder_config.sh                                                \
-    /usr/local/bin                                                             \
-  && chmod ugo+x                                                               \
-    /usr/local/bin/fetchcompass.sh                                             \
-    /usr/local/bin/configurecompass.sh                                         \
-    /usr/local/bin/buildcompass.sh
+RUN ./build/install_gtest.sh                                                   \
+  && ./build/install_dbaccess.sh                                               \
+  && ./build/install_thrift.sh -t "0.13.0"
 
 WORKDIR /tmp

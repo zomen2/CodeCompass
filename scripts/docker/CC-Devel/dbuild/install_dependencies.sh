@@ -41,6 +41,7 @@ packages_to_install=(                                                          \
 
 declare running_ubuntu_codename
 running_ubuntu_codename="$(lsb_release --codename --short)"
+readonly running_ubuntu_codename
 if [[ "${running_ubuntu_codename}" == "focal" ]]; then
     packages_to_install+=(                                                     \
         "libssl-dev"                                                           \
