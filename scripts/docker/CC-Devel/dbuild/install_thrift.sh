@@ -17,11 +17,13 @@ ${0} [-h] -t <thrift version> [-d <install dir>]
   -h  Print this usage information. Optional.
   -d  Install directory of thrift. Optional. "/opt/thrift" is the default.
       On Ubuntu 20.04 and newer, thrift packages are part of distribution, so
-      on these versions this parameter has no effect. jar files of thrift-java
-      placed in the distro standard place ("/usr/share/lib") as thrift-java
-      would be a supported package.
+      on these versions this parameter has no effect.
+  -j  Directory where jar files of thrift-java will be installed. Optional.
+     If not defined then Jars are placed in standard place of the distro.
+     ("/usr/share/lib") as thrift-java would be a supported package.
       On older ubuntu release(s) the java jars are placed in
-      "<thrift lib dir>/java". So the compass makefile will search them from it.
+      "<thrift lib dir>/java". So the compass makefile will search them from
+      it.
   -t  Thrift version. Mandatory. For example '0.13.0'.
 EOF
 }
@@ -75,7 +77,8 @@ function makeAndInstallCppDevel() {
 }
 
 declare thrift_install_dir="/opt/thrift"
-while getopts "ht:d:" OPTION; do
+declare java_lib_install_dir
+while getopts "hd:j:t:" OPTION; do
     case ${OPTION} in
         h)
             usage
@@ -83,6 +86,9 @@ while getopts "ht:d:" OPTION; do
             ;;
         d)
             thrift_install_dir="${OPTARG}"
+            ;;
+        j)
+            java_lib_install_dir="${OPTARG}"
             ;;
         t)
             thrift_version="${OPTARG}"
@@ -94,36 +100,47 @@ while getopts "ht:d:" OPTION; do
     esac
 done
 
-if [[ -z "${thrift_version}" ]]; then
-    echo "Thrift version should be defined." >&2
-    usage
+declare running_ubuntu_codename
+running_ubuntu_codename="$(lsb_release --codename --short)"
+readonly running_ubuntu_codename
+
+if [[ "${running_ubuntu_codename}" != "focal" ]] && \
+   [[ "${running_ubuntu_codename}" != "bionic" ]]; then
+    echo "Unsupported ubuntu release" 2>&1
     exit 1
 fi
 
-declare thrift_archive_dir="thrift-${thrift_version}.tar.gz"
+if [[ -z "${thrift_version}" ]]; then
+    echo "Thrift version should be defined." >&2
+    usage
+    exit 2
+fi
+
+if [[ -z "${java_lib_install_dir}" ]]; then
+    if [[ "${running_ubuntu_codename}" == "bionic" ]]; then
+	    java_lib_install_dir="${thrift_install_dir}/java"
+    else
+	    java_lib_install_dir="/usr/share/java"
+    fi
+fi
+readonly java_lib_install_dir
+
+declare -r thrift_archive_dir="thrift-${thrift_version}.tar.gz"
 
 declare thrift_build_dir
 thrift_build_dir=$(mktemp -d -t "thriftbuild_XXXXXXXX")
-declare thrift_src_dir="${thrift_build_dir}/thrift"
-declare thrift_java_src_dir="${thrift_src_dir}/lib/java"
+declare -r thrift_src_dir="${thrift_build_dir}/thrift"
+declare -r thrift_java_src_dir="${thrift_src_dir}/lib/java"
 
 downloadThriftSource
 
-declare running_ubuntu_codename
-running_ubuntu_codename="$(lsb_release --codename --short)"
-declare java_lib_install_dir
 if [[ "${running_ubuntu_codename}" == "focal" ]]; then
     DEBIAN_FRONTEND=noninteractive apt-get install --yes                       \
         "libthrift-dev" "thrift-compiler"
-    java_lib_install_dir="/usr/share/java"
-elif [[ "${running_ubuntu_codename}" == "bionic" ]]; then
+else
     makeAndInstallCppDevel
     java_lib_install_dir=$(PKG_CONFIG_PATH="${thrift_install_dir}"\
 "/lib/pkgconfig" pkg-config --variable=libdir thrift)
-    java_lib_install_dir="${java_lib_install_dir}/java"
-else
-    echo "Unsupported ubuntu release" 2>&1
-    exit 1
 fi
 
 makeAndInstallJavaJars

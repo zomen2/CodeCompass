@@ -48,20 +48,30 @@ SCRIPT_DIR=$(readlink --canonicalize-existing --verbose                        \
 readonly SCRIPT_DIR
 source "${SCRIPT_DIR}/builder_config.sh"
 
-cd "${CODE_COMPASS_BUILD_DIR}"
-
 declare clang_major_version
 clang_major_version=$(clang --version | grep version |                         \
-    cut --fields=4 --delim=" " | cut --fields=1 --delim=".")
+    cut --fields=3 --delim=" " | cut --fields=1 --delim=".")
 readonly clang_major_version
 
-cmake "${CODE_COMPASS_SRC_DIR}"                                                \
+cmake_cmd_args=(
   "-DCMAKE_INSTALL_PREFIX=${CODE_COMPASS_INSTALL_DIR}"                         \
   "-DDATABASE=${CODE_COMPASS_DATABASE_TYPE}"                                   \
   "-DCMAKE_BUILD_TYPE=${CODE_COMPASS_BUILD_TYPE}"                              \
   "-DLLVM_DIR=/usr/lib/llvm-${clang_major_version}/cmake"                      \
   "-DClang_DIR=/usr/lib/cmake/clang-${clang_major_version}"                    \
-  "-DCMAKE_VERBOSE_MAKEFILE:BOOL=${LET_THE_BUILD_VERBOSE}"
+  "-DCMAKE_VERBOSE_MAKEFILE:BOOL=${LET_THE_BUILD_VERBOSE}"                     \
+)
+
+if [[ "${CODE_COMPASS_DATABASE_TYPE}" == "sqlite" ]]; then
+    declare -r CODE_COMPASS_TEST_DIR="${CODE_COMPASS_OUTPUT_DIR}/"\
+"test_workspace"
+    cmake_cmd_args+=(
+        "-DTEST_DB=sqlite:database=${CODE_COMPASS_TEST_DIR}/cc_test.sqlite")
+fi
+readonly cmake_cmd_args
+
+cd "${CODE_COMPASS_BUILD_DIR}"
+cmake "${cmake_cmd_args[@]}" "${CODE_COMPASS_SRC_DIR}"
 
 # TODO: Later the CodeCompass should be compiled with clang.
 #  "-DCMAKE_C_COMPILER_ID=Clang" \
